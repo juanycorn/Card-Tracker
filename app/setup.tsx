@@ -1,33 +1,28 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-
-type Preset = { id: string; game: string; mode: string; players: number; startingValue: number; metric: string; step: number };
-type ThemeChoice = { id: string; name: string; example: string };
-
-const PRESETS: Preset[] = [
-  { id: 'mtg-commander', game: 'MAGIC', mode: 'Commander', players: 4, startingValue: 40, metric: 'LIFE', step: 5 },
-  { id: 'mtg-standard', game: 'MAGIC', mode: 'Standard / Modern', players: 2, startingValue: 20, metric: 'LIFE', step: 5 },
-  { id: 'mtg-brawl', game: 'MAGIC', mode: 'Brawl', players: 2, startingValue: 25, metric: 'LIFE', step: 5 },
-  { id: 'pokemon', game: 'POKÉMON TCG', mode: 'Standard Match', players: 2, startingValue: 6, metric: 'PRIZE CARDS', step: 1 },
-  { id: 'yugioh', game: 'YU-GI-OH!', mode: 'Duel', players: 2, startingValue: 8000, metric: 'LP', step: 500 },
-  { id: 'dnd', game: 'D&D', mode: 'Party HP', players: 4, startingValue: 20, metric: 'HP', step: 5 },
-];
-
-const THEMES: ThemeChoice[] = [
-  { id: 'arcane', name: 'Arcane', example: 'Enemy · Resource · Buff' },
-  { id: 'fantasy', name: 'Fantasy Raid', example: 'Goblins · Gold · Blessing' },
-  { id: 'scifi', name: 'Sci-Fi', example: 'Hostiles · Energy Cells · Upgrade' },
-];
+import { RULES_PRESETS, type RulesPreset } from '../games';
+import { THEME_PACKS, type ThemePack } from '../themes';
 
 export default function SetupScreen() {
-  const [selected, setSelected] = useState(PRESETS[0]);
+  const [selected, setSelected] = useState<RulesPreset>(RULES_PRESETS[0]);
   const [players, setPlayers] = useState(selected.players);
-  const [theme, setTheme] = useState(THEMES[0]);
+  const [theme, setTheme] = useState<ThemePack>(THEME_PACKS[0]);
 
-  const choosePreset = (preset: Preset) => { setSelected(preset); setPlayers(preset.players); };
+  const choosePreset = (preset: RulesPreset) => { setSelected(preset); setPlayers(preset.players); };
 
-  const startGame = () => router.push({ pathname: '/game', params: { game: selected.game, mode: selected.mode, players: String(players), start: String(selected.startingValue), metric: selected.metric, step: String(selected.step), theme: theme.id } });
+  const startGame = () => router.push({
+    pathname: '/game',
+    params: {
+      game: selected.game,
+      mode: selected.mode,
+      players: String(players),
+      start: String(selected.startingValue),
+      metric: selected.metric,
+      step: String(selected.step),
+      theme: theme.id,
+    },
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -40,7 +35,7 @@ export default function SetupScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionLabel}>GAME RULES</Text>
         <View style={styles.presetGrid}>
-          {PRESETS.map((preset) => {
+          {RULES_PRESETS.map((preset) => {
             const active = preset.id === selected.id;
             return <Pressable key={preset.id} onPress={() => choosePreset(preset)} style={[styles.presetCard, active && styles.activeCard]}>
               <Text style={styles.gameLabel}>{preset.game}</Text><Text style={styles.modeLabel}>{preset.mode}</Text><Text style={styles.presetDetails}>{preset.players} players · {preset.startingValue} {preset.metric}</Text>
@@ -50,7 +45,7 @@ export default function SetupScreen() {
 
         <Text style={styles.sectionLabel}>THEME PACK</Text>
         <View style={styles.themeRow}>
-          {THEMES.map((item) => <Pressable key={item.id} onPress={() => setTheme(item)} style={[styles.themeCard, item.id === theme.id && styles.activeTheme]}>
+          {THEME_PACKS.map((item) => <Pressable key={item.id} onPress={() => setTheme(item)} style={[styles.themeCard, item.id === theme.id && styles.activeTheme]}>
             <Text style={styles.themeName}>{item.name}</Text><Text style={styles.themeExample}>{item.example}</Text>
           </Pressable>)}
         </View>

@@ -1,1 +1,1 @@
-export { default } from './game-v2';
+export { default } from './game-v3';

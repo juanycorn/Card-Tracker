@@ -1,1 +1,1 @@
-export { default } from './game-v3';
+export { default } from './game-polished';

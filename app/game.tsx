@@ -1,1 +1,1 @@
-export { default } from '../screens/GameScreen';
+export { default } from '../screens/GameScreenSafe';

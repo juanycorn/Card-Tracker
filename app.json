@@ -6,7 +6,6 @@
     "orientation": "landscape",
     "userInterfaceStyle": "dark",
     "scheme": "cardsync",
-    "newArchEnabled": true,
     "plugins": ["expo-router"],
     "ios": {
       "supportsTablet": true,

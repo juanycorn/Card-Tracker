@@ -2,15 +2,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-type CounterRole = 'enemy' | 'resource' | 'buff' | 'debuff' | 'objective' | 'custom';
+type CounterRole = 'enemy' | 'treasure' | 'food' | 'resource' | 'buff' | 'debuff' | 'objective' | 'custom';
 type TrackedCounter = { id: string; role: CounterRole; value: number; temporary: boolean };
 type Player = { id: number; name: string; value: number; counters: TrackedCounter[] };
 type Theme = { name: string; labels: Record<CounterRole, string> };
 
 const THEMES: Record<string, Theme> = {
-  arcane: { name: 'Arcane', labels: { enemy: 'Enemy', resource: 'Resource', buff: 'Buff', debuff: 'Debuff', objective: 'Objective', custom: 'Counter' } },
-  fantasy: { name: 'Fantasy Raid', labels: { enemy: 'Goblins', resource: 'Gold', buff: 'Blessing', debuff: 'Curse', objective: 'Quest', custom: 'Counter' } },
-  scifi: { name: 'Sci-Fi', labels: { enemy: 'Hostiles', resource: 'Energy Cells', buff: 'Upgrade', debuff: 'Malfunction', objective: 'Mission', custom: 'Counter' } },
+  arcane: { name: 'Arcane', labels: { enemy: 'Enemy', treasure: 'Treasure', food: 'Food', resource: 'Resource', buff: 'Buff', debuff: 'Debuff', objective: 'Objective', custom: 'Counter' } },
+  fantasy: { name: 'Fantasy Raid', labels: { enemy: 'Goblins', treasure: 'Gold', food: 'Rations', resource: 'Supplies', buff: 'Blessing', debuff: 'Curse', objective: 'Quest', custom: 'Counter' } },
+  scifi: { name: 'Sci-Fi', labels: { enemy: 'Hostiles', treasure: 'Credits', food: 'Med Packs', resource: 'Energy Cells', buff: 'Upgrade', debuff: 'Malfunction', objective: 'Mission', custom: 'Counter' } },
 };
 
 const PHASES_BY_GAME: Record<string, string[]> = {
@@ -20,7 +20,7 @@ const PHASES_BY_GAME: Record<string, string[]> = {
   DND: ['START', 'MOVE', 'ACTION', 'BONUS', 'END'],
 };
 
-const COUNTER_ROLES: CounterRole[] = ['enemy', 'resource', 'buff', 'debuff', 'objective', 'custom'];
+const COUNTER_ROLES: CounterRole[] = ['enemy', 'treasure', 'food', 'resource', 'buff', 'debuff', 'objective', 'custom'];
 
 export default function GameScreen() {
   const params = useLocalSearchParams<{ game?: string; mode?: string; players?: string; start?: string; metric?: string; step?: string; theme?: string }>();
@@ -82,25 +82,9 @@ export default function GameScreen() {
         <Pressable onPress={resetGame} style={styles.topButton}><Text style={styles.topButtonText}>RESET</Text></Pressable>
       </View>
 
-      <ScrollView
-        style={styles.boardScroll}
-        contentContainerStyle={styles.grid}
-        showsVerticalScrollIndicator
-        nestedScrollEnabled
-      >
+      <ScrollView style={styles.boardScroll} contentContainerStyle={styles.grid} showsVerticalScrollIndicator nestedScrollEnabled>
         {players.map((player, index) => (
-          <PlayerPanel
-            key={player.id}
-            player={player}
-            metric={metric}
-            largeStep={largeStep}
-            isActive={index === activePlayer}
-            theme={theme}
-            onChange={changeValue}
-            onChangeCounter={changeCounter}
-            onRemoveCounter={removeCounter}
-            onAddCounter={() => setCounterPlayerId(player.id)}
-          />
+          <PlayerPanel key={player.id} player={player} metric={metric} largeStep={largeStep} isActive={index === activePlayer} theme={theme} onChange={changeValue} onChangeCounter={changeCounter} onRemoveCounter={removeCounter} onAddCounter={() => setCounterPlayerId(player.id)} />
         ))}
       </ScrollView>
 
@@ -124,12 +108,14 @@ export default function GameScreen() {
       <Modal transparent visible={counterPlayerId !== null} animationType="fade" onRequestClose={() => setCounterPlayerId(null)}>
         <View style={styles.modalBackdrop}><View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Add themed counter</Text>
-          <Text style={styles.modalSubtitle}>Choose the generic role. The active theme decides its display name.</Text>
-          <View style={styles.roleGrid}>{COUNTER_ROLES.map((role) => (
-            <Pressable key={role} onPress={() => setCounterRole(role)} style={[styles.roleButton, counterRole === role && styles.selectedRole]}>
-              <Text style={styles.roleKey}>{role.toUpperCase()}</Text><Text style={styles.roleName}>{theme.labels[role]}</Text>
-            </Pressable>
-          ))}</View>
+          <Text style={styles.modalSubtitle}>Choose the mechanical role. The active theme decides its display name.</Text>
+          <ScrollView style={styles.roleScroll} contentContainerStyle={styles.roleGrid}>
+            {COUNTER_ROLES.map((role) => (
+              <Pressable key={role} onPress={() => setCounterRole(role)} style={[styles.roleButton, counterRole === role && styles.selectedRole]}>
+                <Text style={styles.roleKey}>{role.toUpperCase()}</Text><Text style={styles.roleName}>{theme.labels[role]}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
           <Text style={styles.expiryLabel}>UNTIL END OF TURN?</Text>
           <View style={styles.expiryRow}>
             <Pressable onPress={() => setTemporary(false)} style={[styles.expiryButton, !temporary && styles.selectedRole]}><Text style={styles.roleName}>NO · PERSISTENT</Text></Pressable>
@@ -225,10 +211,11 @@ const styles = StyleSheet.create({
   nextButtonHint: { color: '#D9D4FF', fontSize: 7, fontWeight: '800', marginTop: 2 },
   nextArrow: { color: '#FFFFFF', fontSize: 28, fontWeight: '500' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  modalCard: { width: '100%', maxWidth: 620, borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 22 },
+  modalCard: { width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 22 },
   modalTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' },
   modalSubtitle: { color: '#8E94A6', fontSize: 11, marginTop: 4, marginBottom: 14 },
-  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  roleScroll: { maxHeight: 150 },
+  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 4 },
   roleButton: { width: '31.5%', minHeight: 58, borderRadius: 12, backgroundColor: '#1A1D26', borderWidth: 1, borderColor: '#2A2F3C', padding: 9, justifyContent: 'center' },
   selectedRole: { borderColor: '#8F7CFF', backgroundColor: '#2C2750' },
   roleKey: { color: '#777D8D', fontSize: 7, fontWeight: '900', letterSpacing: 1 },

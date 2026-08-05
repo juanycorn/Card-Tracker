@@ -292,18 +292,28 @@ function PlayerPanel({ player, metric, largeStep, active, labels, supportsMana, 
   onChangeCounter: (playerId: number, counterId: string, field: 'value' | 'secondaryValue', amount: number) => void; onToggleCounter: (playerId: number, counterId: string) => void; onRemoveCounter: (playerId: number, counterId: string) => void; onAddCounter: () => void;
 }) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [lifeColor, setLifeColor] = useState('#FFFFFF');
   const lifeScale = useRef(new Animated.Value(1)).current;
   const panelScale = useRef(new Animated.Value(1)).current;
   const glow = useRef(new Animated.Value(active ? 1 : 0)).current;
   const drawer = useRef(new Animated.Value(manaOpen ? 1 : 0)).current;
   const previousValue = useRef(player.value);
+  const lifeColorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (previousValue.current !== player.value) {
+      const previous = previousValue.current;
       previousValue.current = player.value;
+      setLifeColor(player.value > previous ? '#4ADE80' : '#FF5F6D');
+      if (lifeColorTimer.current) clearTimeout(lifeColorTimer.current);
+      lifeColorTimer.current = setTimeout(() => setLifeColor('#FFFFFF'), 420);
       lifeScale.setValue(0.72);
       Animated.spring(lifeScale, { toValue: 1, friction: 4, tension: 180, useNativeDriver: true }).start();
     }
+
+    return () => {
+      if (lifeColorTimer.current) clearTimeout(lifeColorTimer.current);
+    };
   }, [lifeScale, player.value]);
 
   useEffect(() => {
@@ -325,7 +335,7 @@ function PlayerPanel({ player, metric, largeStep, active, labels, supportsMana, 
     {active && <Text style={styles.activeBadge}>ACTIVE</Text>}
     {supportsMana && <View style={styles.manaRail}><Pressable onPress={onToggleMana} style={styles.manaButton}><Text style={styles.manaTitle}>MANA</Text><Text style={styles.manaTotal}>{manaTotal}</Text></Pressable>{manaOpen && <Animated.View style={[styles.manaDrawer, { opacity: drawer, transform: [{ translateX: drawer.interpolate({ inputRange: [0, 1], outputRange: [-22, 0] }) }, { scale: drawer.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]}><Pressable onPress={onManaColors}><Text style={styles.chooseColors}>COLORS</Text></Pressable>{player.manaColors.length === 0 ? <Text style={styles.emptyText}>Select colors</Text> : player.manaColors.map((color) => <View key={color} style={styles.manaRow}><Text style={styles.manaSymbol}>{color}</Text><Pressable onPress={() => onChangeMana(player.id, color, -1)}><Text style={styles.smallControl}>−</Text></Pressable><Text style={styles.trackedValue}>{player.mana[color]}</Text><Pressable onPress={() => onChangeMana(player.id, color, 1)}><Text style={styles.smallControl}>+</Text></Pressable></View>)}</Animated.View>}</View>}
     <Pressable onPress={onRename}><Text style={styles.playerName}>{player.name} ✎</Text></Pressable>
-    <Text style={styles.metric}>{metric}</Text><Animated.Text style={[styles.value, { transform: [{ scale: lifeScale }] }]}>{player.value}</Animated.Text>
+    <Text style={styles.metric}>{metric}</Text><Animated.Text style={[styles.value, { color: lifeColor, transform: [{ scale: lifeScale }] }]}>{player.value}</Animated.Text>
     <View style={styles.controls}>{[-largeStep, -1, 1, largeStep].map((amount) => <Pressable key={amount} onPress={() => onChangeValue(player.id, amount)} style={({ pressed }) => [styles.counterButton, pressed && styles.pressedButton]}><Text style={styles.counterButtonText}>{amount > 0 ? `+${amount}` : amount}</Text></Pressable>)}</View>
     <View style={styles.playerCounters}>{player.counters.map((counter) => <AnimatedCounter key={counter.id} counter={counter} playerId={player.id} label={labels[counter.role]} deleteId={deleteId} setDeleteId={setDeleteId} onChangeCounter={onChangeCounter} onToggleCounter={onToggleCounter} onRemoveCounter={onRemoveCounter} />)}<Pressable onPress={onAddCounter} style={styles.addCounterChip}><Text style={styles.addCounterText}>＋ COUNTER</Text></Pressable></View>
   </Animated.View>;

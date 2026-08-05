@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "CardSync",
+    "slug": "cardsync",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "userInterfaceStyle": "dark",
+    "scheme": "cardsync",
+    "newArchEnabled": true,
+    "plugins": ["expo-router"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.juanycorn.cardsync"
+    },
+    "android": {
+      "package": "com.juanycorn.cardsync",
+      "adaptiveIcon": {
+        "backgroundColor": "#090B10"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

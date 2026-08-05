@@ -1,7 +1,39 @@
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { loadSavedGame, type SavedGame } from '../storage/gameSave';
 
 export default function HomeScreen() {
+  const [savedGame, setSavedGame] = useState<SavedGame | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      loadSavedGame().then((save) => {
+        if (active) setSavedGame(save);
+      });
+      return () => { active = false; };
+    }, []),
+  );
+
+  const continueGame = () => {
+    if (!savedGame) return;
+    const { config } = savedGame;
+    router.push({
+      pathname: '/game',
+      params: {
+        game: config.game,
+        mode: config.mode,
+        players: String(config.players),
+        start: String(config.start),
+        metric: config.metric,
+        step: String(config.step),
+        theme: config.theme,
+        resume: '1',
+      },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.backgroundOrbOne} />
@@ -15,6 +47,13 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.actions}>
+          {savedGame && (
+            <Pressable onPress={continueGame} style={({ pressed }) => [styles.continueButton, pressed && styles.buttonPressed]}>
+              <Text style={styles.continueButtonText}>CONTINUE GAME</Text>
+              <Text style={styles.continueHint}>{savedGame.config.game} · {savedGame.config.mode} · {savedGame.state.players.length} players</Text>
+            </Pressable>
+          )}
+
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/setup')}
@@ -52,12 +91,15 @@ const styles = StyleSheet.create({
   logo: { color: '#F7F8FC', fontSize: 66, lineHeight: 76, fontWeight: '900', letterSpacing: -3 },
   logoAccent: { color: '#8F7CFF' },
   tagline: { color: '#B6BAC8', fontSize: 18, marginTop: 4 },
-  actions: { width: '100%', maxWidth: 620, alignSelf: 'center', gap: 14 },
+  actions: { width: '100%', maxWidth: 620, alignSelf: 'center', gap: 12 },
+  continueButton: { backgroundColor: '#142923', borderWidth: 1, borderColor: '#43B79C', borderRadius: 19, paddingVertical: 15, paddingHorizontal: 22, alignItems: 'center' },
+  continueButtonText: { color: '#D8FFF5', fontSize: 18, fontWeight: '900', letterSpacing: 1.2 },
+  continueHint: { color: '#82CDBB', fontSize: 11, marginTop: 3, fontWeight: '700' },
   primaryButton: { backgroundColor: '#7560FF', borderRadius: 22, paddingVertical: 20, paddingHorizontal: 24, alignItems: 'center', shadowColor: '#7560FF', shadowOpacity: 0.35, shadowRadius: 18, elevation: 8 },
   primaryButtonText: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', letterSpacing: 1.5 },
   primaryButtonHint: { color: '#DDD8FF', fontSize: 13, marginTop: 4, fontWeight: '600' },
   secondaryRow: { flexDirection: 'row', gap: 14 },
-  secondaryButton: { flex: 1, minHeight: 82, borderRadius: 18, borderWidth: 1, borderColor: '#2B2F3A', backgroundColor: '#11141B', justifyContent: 'center', alignItems: 'center' },
+  secondaryButton: { flex: 1, minHeight: 72, borderRadius: 18, borderWidth: 1, borderColor: '#2B2F3A', backgroundColor: '#11141B', justifyContent: 'center', alignItems: 'center' },
   secondaryButtonText: { color: '#E8E9EF', fontSize: 16, fontWeight: '800', letterSpacing: 1 },
   comingSoon: { color: '#676D7D', fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginTop: 5 },
   buttonPressed: { opacity: 0.78, transform: [{ scale: 0.985 }] },

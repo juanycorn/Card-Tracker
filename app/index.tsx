@@ -17,11 +17,11 @@ export default function HomeScreen() {
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push('/game')}
+            onPress={() => router.push('/setup')}
             style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
           >
             <Text style={styles.primaryButtonText}>NEW GAME</Text>
-            <Text style={styles.primaryButtonHint}>4 players · 40 life</Text>
+            <Text style={styles.primaryButtonHint}>Choose a game and play mode</Text>
           </Pressable>
 
           <View style={styles.secondaryRow}>

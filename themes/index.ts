@@ -125,7 +125,7 @@ export const THEME_PACKS: PlayerTheme[] = [
       lifeGain: '#7ED957',
       lifeLoss: '#D95D4F',
     },
-    animations: { turnStart: 'glow' },
+    animations: { damage: 'shake', heal: 'pulse', turnStart: 'glow', counterAdd: 'spring' },
   }),
   createTheme({
     id: 'scifi',
@@ -161,7 +161,7 @@ export const THEME_PACKS: PlayerTheme[] = [
       lifeGain: '#43E6A5',
       lifeLoss: '#FF647C',
     },
-    animations: { damage: 'shake', heal: 'pulse', turnStart: 'glow' },
+    animations: { damage: 'shake', heal: 'pulse', turnStart: 'glow', counterAdd: 'spring' },
   }),
 ];
 

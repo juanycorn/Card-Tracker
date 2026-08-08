@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -50,7 +51,7 @@ export default function GameScreen() {
   const metric = params.metric || rules.presets[0].metric;
   const largeStep = Number(params.step) || rules.presets[0].step;
   const modeName = params.mode || rules.presets[0].mode;
-  const themeId = params.theme || 'arcane';
+  const themeId = params.theme || 'mana:C';
 
   const initialState = useMemo<GameState>(() => ({
     players: Array.from({ length: playerCount }, (_, index) => ({
@@ -243,69 +244,74 @@ export default function GameScreen() {
   const counterPlayer = game.players.find((player) => player.id === counterPlayerId);
   const counterTheme = getPlayerTheme(counterPlayer?.themeId ?? themeId);
   const preferredCounters = counterPlayer?.preferredCounters ?? [];
+  const manaPickerPlayer = game.players.find((player) => player.id === manaColorPickerId);
+  const manaPickerTheme = getPlayerTheme(manaPickerPlayer?.themeId ?? themeId);
   const orderedCounterGroups = rules.counterGroups.map((group) => ({
     ...group,
     roles: [...group.roles].sort((a, b) => Number(preferredCounters.includes(b)) - Number(preferredCounters.includes(a))),
   }));
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: activeTheme.colors.background }]}>
-      <View style={styles.topBar}>
-        <Pressable onPress={() => router.replace('/')} style={styles.topButton}><Text style={styles.topButtonText}>‹ HOME</Text></Pressable>
-        <Pressable disabled={history.length === 0} onPress={undo} style={[styles.topButton, history.length === 0 && styles.disabledButton]}><Text style={styles.topButtonText}>↶ UNDO</Text></Pressable>
-        <View style={styles.turnStatus}><Text style={[styles.gameMode, { color: activeTheme.colors.primary }]}>{rules.name} · {modeName} · {activeTheme.name}</Text><Text style={styles.turnLabel}>CURRENT TURN</Text><Text style={styles.turnName}>{activeName}</Text></View>
-        <Pressable onPress={resetGame} style={styles.topButton}><Text style={styles.topButtonText}>RESET</Text></Pressable>
-        <Pressable hitSlop={14} onPress={() => { void hapticLight(); setSettingsOpen(true); }} style={[styles.settingsButton, { borderColor: activeTheme.colors.accent }]}><Text style={styles.settingsText}>⚙</Text></Pressable>
-      </View>
+    <LinearGradient colors={activeTheme.gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradientRoot}>
+      <View pointerEvents="none" style={styles.gameWash} />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.topBar}>
+          <Pressable onPress={() => router.replace('/')} style={styles.topButton}><Text style={styles.topButtonText}>‹ HOME</Text></Pressable>
+          <Pressable disabled={history.length === 0} onPress={undo} style={[styles.topButton, history.length === 0 && styles.disabledButton]}><Text style={styles.topButtonText}>↶ UNDO</Text></Pressable>
+          <View style={styles.turnStatus}><Text style={[styles.gameMode, { color: activeTheme.colors.accent }]}>{rules.name} · {modeName} · {activeTheme.name}</Text><Text style={styles.turnLabel}>CURRENT TURN</Text><Text style={styles.turnName}>{activeName}</Text></View>
+          <Pressable onPress={resetGame} style={styles.topButton}><Text style={styles.topButtonText}>RESET</Text></Pressable>
+          <Pressable hitSlop={14} onPress={() => { void hapticLight(); setSettingsOpen(true); }} style={styles.settingsButton}><Text style={styles.settingsText}>⚙</Text></Pressable>
+        </View>
 
-      <ScrollView style={styles.boardScroll} contentContainerStyle={styles.grid} persistentScrollbar>
-        {game.players.map((player, index) => {
-          const playerTheme = getPlayerTheme(player.themeId ?? themeId);
-          return <PlayerPanel
-            key={player.id}
-            player={player}
-            theme={playerTheme}
-            metric={metric}
-            largeStep={largeStep}
-            active={index === game.activePlayer}
-            supportsMana={rules.supportsMana}
-            manaOpen={manaPlayerId === player.id}
-            onRename={() => { setNamePlayerId(player.id); setNameDraft(player.name); }}
-            onToggleMana={() => { void hapticLight(); animateLayout(); setManaPlayerId((current) => current === player.id ? null : player.id); }}
-            onManaColors={() => setManaColorPickerId(player.id)}
-            onChangeMana={changeMana}
-            onChangeValue={changeValue}
-            onChangeCounter={changeCounter}
-            onToggleCounter={toggleCounter}
-            onRemoveCounter={removeCounter}
-            onAddCounter={() => setCounterPlayerId(player.id)}
-          />;
-        })}
-      </ScrollView>
-
-      <View style={styles.turnControls}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.phaseTrack}>
-          {rules.phases.map((phase, index) => <Pressable key={phase} onPress={() => selectPhase(index)} style={[styles.phaseChip, index === game.activePhase && [styles.activePhaseChip, { borderColor: activeTheme.colors.accent }]]}><Text style={[styles.phaseText, index === game.activePhase && styles.activePhaseText]}>{phase}</Text></Pressable>)}
+        <ScrollView style={styles.boardScroll} contentContainerStyle={styles.grid} persistentScrollbar>
+          {game.players.map((player, index) => {
+            const playerTheme = getPlayerTheme(player.themeId ?? themeId);
+            return <PlayerPanel
+              key={player.id}
+              player={player}
+              theme={playerTheme}
+              metric={metric}
+              largeStep={largeStep}
+              active={index === game.activePlayer}
+              supportsMana={rules.supportsMana}
+              manaOpen={manaPlayerId === player.id}
+              onRename={() => { setNamePlayerId(player.id); setNameDraft(player.name); }}
+              onToggleMana={() => { void hapticLight(); animateLayout(); setManaPlayerId((current) => current === player.id ? null : player.id); }}
+              onManaColors={() => setManaColorPickerId(player.id)}
+              onChangeMana={changeMana}
+              onChangeValue={changeValue}
+              onChangeCounter={changeCounter}
+              onToggleCounter={toggleCounter}
+              onRemoveCounter={removeCounter}
+              onAddCounter={() => setCounterPlayerId(player.id)}
+            />;
+          })}
         </ScrollView>
-        <Pressable onPress={advance} style={[styles.nextButton, { backgroundColor: activeTheme.colors.primary }]}><Text style={styles.nextButtonText}>{isLastPhase ? 'END TURN' : 'NEXT PHASE'}</Text><Text style={styles.nextButtonHint}>{isLastPhase ? `PASS TO ${game.players[(game.activePlayer + 1) % game.players.length].name}` : rules.phases[game.activePhase + 1]}</Text></Pressable>
-      </View>
 
-      <Modal transparent visible={settingsOpen} animationType="fade" onRequestClose={() => setSettingsOpen(false)}>
-        <View style={styles.modalBackdrop}><View style={styles.settingsCard}><Text style={styles.modalTitle}>Game Settings</Text><Text style={styles.modalSubtitle}>More game options will live here later.</Text><Pressable onPress={endGame} style={styles.endGameButton}><Text style={styles.endGameText}>END GAME</Text></Pressable><Pressable onPress={() => setSettingsOpen(false)} style={styles.closeSettings}><Text style={styles.cancelText}>CLOSE</Text></Pressable></View></View>
-      </Modal>
+        <View style={styles.turnControls}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.phaseTrack}>
+            {rules.phases.map((phase, index) => <Pressable key={phase} onPress={() => selectPhase(index)} style={[styles.phaseChip, index === game.activePhase && [styles.activePhaseChip, { borderColor: activeTheme.colors.accent, backgroundColor: activeTheme.colors.surface }]]}><Text style={[styles.phaseText, index === game.activePhase && styles.activePhaseText]}>{phase}</Text></Pressable>)}
+          </ScrollView>
+          <Pressable onPress={advance} style={[styles.nextButton, { backgroundColor: activeTheme.colors.primary }]}><Text style={styles.nextButtonText}>{isLastPhase ? 'END TURN' : 'NEXT PHASE'}</Text><Text style={styles.nextButtonHint}>{isLastPhase ? `PASS TO ${game.players[(game.activePlayer + 1) % game.players.length].name}` : rules.phases[game.activePhase + 1]}</Text></Pressable>
+        </View>
 
-      <Modal transparent visible={namePlayerId !== null} animationType="fade" onRequestClose={() => setNamePlayerId(null)}>
-        <View style={styles.modalBackdrop}><View style={styles.nameCard}><Text style={styles.modalTitle}>Rename player</Text><TextInput autoFocus value={nameDraft} onChangeText={setNameDraft} onSubmitEditing={saveName} maxLength={18} selectTextOnFocus style={styles.nameInput} placeholder="Player name" placeholderTextColor="#666D7D" /><View style={styles.modalActions}><Pressable onPress={() => setNamePlayerId(null)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={saveName} style={styles.addButton}><Text style={styles.addText}>SAVE NAME</Text></Pressable></View></View></View>
-      </Modal>
+        <Modal transparent visible={settingsOpen} animationType="fade" onRequestClose={() => setSettingsOpen(false)}>
+          <View style={styles.modalBackdrop}><View style={styles.settingsCard}><Text style={styles.modalTitle}>Game Settings</Text><Text style={styles.modalSubtitle}>More game options will live here later.</Text><Pressable onPress={endGame} style={styles.endGameButton}><Text style={styles.endGameText}>END GAME</Text></Pressable><Pressable onPress={() => setSettingsOpen(false)} style={styles.closeSettings}><Text style={styles.cancelText}>CLOSE</Text></Pressable></View></View>
+        </Modal>
 
-      <Modal transparent visible={counterPlayerId !== null} animationType="fade" onRequestClose={() => setCounterPlayerId(null)}>
-        <View style={styles.modalBackdrop}><View style={styles.modalCard}><Text style={styles.modalTitle}>Add {rules.name} counter</Text><Text style={styles.modalSubtitle}>{preferredCounters.length ? 'Deck suggestions are shown first. Nothing is added until you choose it.' : 'This catalog comes from the active rules pack.'}</Text><ScrollView style={styles.pickerScroll} persistentScrollbar>{orderedCounterGroups.map((group) => <View key={group.title}><Text style={styles.groupTitle}>{group.title}</Text><View style={styles.roleGrid}>{group.roles.map((role) => <Pressable key={role} onPress={() => setCounterRole(role)} style={[styles.roleButton, counterRole === role && styles.selectedRole, preferredCounters.includes(role) && styles.suggestedRole]}><Text style={styles.roleName}>{counterTheme.labels[role]}</Text><Text style={styles.roleType}>{preferredCounters.includes(role) ? 'DECK SUGGESTION · ' : ''}{COUNTER_KIND[role] === 'stats' ? 'TWO VALUES' : COUNTER_KIND[role] === 'toggle' ? 'ON / OFF' : 'NUMBER'}</Text></Pressable>)}</View></View>)}</ScrollView><Text style={styles.expiryLabel}>UNTIL END OF TURN?</Text><View style={styles.expiryRow}><Pressable onPress={() => setTemporary(false)} style={[styles.expiryButton, !temporary && styles.selectedRole]}><Text style={styles.roleName}>PERSISTENT</Text></Pressable><Pressable onPress={() => setTemporary(true)} style={[styles.expiryButton, temporary && styles.selectedRole]}><Text style={styles.roleName}>TEMPORARY</Text></Pressable></View><View style={styles.modalActions}><Pressable onPress={() => setCounterPlayerId(null)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={addCounter} style={styles.addButton}><Text style={styles.addText}>ADD</Text></Pressable></View></View></View>
-      </Modal>
+        <Modal transparent visible={namePlayerId !== null} animationType="fade" onRequestClose={() => setNamePlayerId(null)}>
+          <View style={styles.modalBackdrop}><View style={styles.nameCard}><Text style={styles.modalTitle}>Rename player</Text><TextInput autoFocus value={nameDraft} onChangeText={setNameDraft} onSubmitEditing={saveName} maxLength={18} selectTextOnFocus style={styles.nameInput} placeholder="Player name" placeholderTextColor="#666D7D" /><View style={styles.modalActions}><Pressable onPress={() => setNamePlayerId(null)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={saveName} style={[styles.addButton, { backgroundColor: activeTheme.colors.primary }]}><Text style={styles.addText}>SAVE NAME</Text></Pressable></View></View></View>
+        </Modal>
 
-      <Modal transparent visible={manaColorPickerId !== null} animationType="fade" onRequestClose={() => setManaColorPickerId(null)}>
-        <View style={styles.modalBackdrop}><View style={styles.manaPickerCard}><Text style={styles.modalTitle}>Choose mana colors</Text><View style={styles.manaPickerGrid}>{MANA_COLORS.map((color) => { const player = game.players.find((item) => item.id === manaColorPickerId); const selected = player?.manaColors.includes(color) ?? false; return <Pressable key={color} onPress={() => manaColorPickerId && toggleManaColor(manaColorPickerId, color)} style={[styles.manaPickerButton, selected && styles.selectedRole]}><Text style={styles.manaSymbol}>{color}</Text><Text style={styles.roleType}>{selected ? 'SHOWN' : 'HIDDEN'}</Text></Pressable>; })}</View><Pressable onPress={() => setManaColorPickerId(null)} style={styles.addButton}><Text style={styles.addText}>DONE</Text></Pressable></View></View>
-      </Modal>
-    </SafeAreaView>
+        <Modal transparent visible={counterPlayerId !== null} animationType="fade" onRequestClose={() => setCounterPlayerId(null)}>
+          <View style={styles.modalBackdrop}><View style={styles.modalCard}><Text style={styles.modalTitle}>Add {rules.name} counter</Text><Text style={styles.modalSubtitle}>{preferredCounters.length ? 'Deck suggestions are shown first. Nothing is added until you choose it.' : 'This catalog comes from the active rules pack.'}</Text><ScrollView style={styles.pickerScroll} persistentScrollbar>{orderedCounterGroups.map((group) => <View key={group.title}><Text style={styles.groupTitle}>{group.title}</Text><View style={styles.roleGrid}>{group.roles.map((role) => <Pressable key={role} onPress={() => setCounterRole(role)} style={[styles.roleButton, counterRole === role && [styles.selectedRole, { borderColor: counterTheme.colors.accent, backgroundColor: counterTheme.colors.surface }], preferredCounters.includes(role) && styles.suggestedRole]}><Text style={styles.roleName}>{counterTheme.labels[role]}</Text><Text style={styles.roleType}>{preferredCounters.includes(role) ? 'DECK SUGGESTION · ' : ''}{COUNTER_KIND[role] === 'stats' ? 'TWO VALUES' : COUNTER_KIND[role] === 'toggle' ? 'ON / OFF' : 'NUMBER'}</Text></Pressable>)}</View></View>)}</ScrollView><Text style={styles.expiryLabel}>UNTIL END OF TURN?</Text><View style={styles.expiryRow}><Pressable onPress={() => setTemporary(false)} style={[styles.expiryButton, !temporary && [styles.selectedRole, { borderColor: counterTheme.colors.accent, backgroundColor: counterTheme.colors.surface }]]}><Text style={styles.roleName}>PERSISTENT</Text></Pressable><Pressable onPress={() => setTemporary(true)} style={[styles.expiryButton, temporary && [styles.selectedRole, { borderColor: counterTheme.colors.accent, backgroundColor: counterTheme.colors.surface }]]}><Text style={styles.roleName}>TEMPORARY</Text></Pressable></View><View style={styles.modalActions}><Pressable onPress={() => setCounterPlayerId(null)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={addCounter} style={[styles.addButton, { backgroundColor: counterTheme.colors.primary }]}><Text style={styles.addText}>ADD</Text></Pressable></View></View></View>
+        </Modal>
+
+        <Modal transparent visible={manaColorPickerId !== null} animationType="fade" onRequestClose={() => setManaColorPickerId(null)}>
+          <View style={styles.modalBackdrop}><View style={styles.manaPickerCard}><Text style={styles.modalTitle}>Choose mana colors</Text><View style={styles.manaPickerGrid}>{MANA_COLORS.map((color) => { const selected = manaPickerPlayer?.manaColors.includes(color) ?? false; return <Pressable key={color} onPress={() => manaColorPickerId && toggleManaColor(manaColorPickerId, color)} style={[styles.manaPickerButton, selected && [styles.selectedRole, { borderColor: manaPickerTheme.colors.accent, backgroundColor: manaPickerTheme.colors.surface }]]}><Text style={styles.manaSymbol}>{color}</Text><Text style={styles.roleType}>{selected ? 'SHOWN' : 'HIDDEN'}</Text></Pressable>; })}</View><Pressable onPress={() => setManaColorPickerId(null)} style={[styles.addButton, { backgroundColor: manaPickerTheme.colors.primary }]}><Text style={styles.addText}>DONE</Text></Pressable></View></View>
+        </Modal>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -368,7 +374,7 @@ function AnimatedCounter({ counter, playerId, label, deleteId, setDeleteId, onCh
   const appear = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.spring(appear, { toValue: 1, friction: 5, tension: 130, useNativeDriver: true }).start(); }, [appear]);
   const kind = COUNTER_KIND[counter.role];
-  return <Animated.View style={{ opacity: appear, transform: [{ scale: appear }, { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Pressable onLongPress={() => setDeleteId(counter.id)} style={[styles.trackedCounter, kind === 'stats' && styles.statsCounter]}><Text style={styles.trackedLabel}>{label}{counter.temporary ? ' · EOT' : ''}</Text>{kind === 'single' && <ValueControl value={counter.value} onMinus={() => onChangeCounter(playerId, counter.id, 'value', -1)} onPlus={() => onChangeCounter(playerId, counter.id, 'value', 1)} accent={accent} />}{kind === 'stats' && <><ValueControl label="A" value={counter.value} onMinus={() => onChangeCounter(playerId, counter.id, 'value', -1)} onPlus={() => onChangeCounter(playerId, counter.id, 'value', 1)} accent={accent} /><ValueControl label="B" value={counter.secondaryValue ?? 0} onMinus={() => onChangeCounter(playerId, counter.id, 'secondaryValue', -1)} onPlus={() => onChangeCounter(playerId, counter.id, 'secondaryValue', 1)} accent={accent} /></>}{kind === 'toggle' && <Pressable onPress={() => onToggleCounter(playerId, counter.id)} style={[styles.toggleButton, counter.active && styles.toggleActive]}><Text style={styles.toggleText}>{counter.active ? 'ACTIVE' : 'INACTIVE'}</Text></Pressable>}{deleteId === counter.id && <Pressable onPress={() => onRemoveCounter(playerId, counter.id)} style={styles.deleteCounter}><Text style={styles.deleteText}>×</Text></Pressable>}</Pressable></Animated.View>;
+  return <Animated.View style={{ opacity: appear, transform: [{ scale: appear }, { translateY: appear.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}><Pressable onLongPress={() => setDeleteId(counter.id)} style={[styles.trackedCounter, kind === 'stats' && styles.statsCounter]}><Text style={styles.trackedLabel}>{label}{counter.temporary ? ' · EOT' : ''}</Text>{kind === 'single' && <ValueControl value={counter.value} onMinus={() => onChangeCounter(playerId, counter.id, 'value', -1)} onPlus={() => onChangeCounter(playerId, counter.id, 'value', 1)} accent={accent} />}{kind === 'stats' && <><ValueControl label="A" value={counter.value} onMinus={() => onChangeCounter(playerId, counter.id, 'value', -1)} onPlus={() => onChangeCounter(playerId, counter.id, 'value', 1)} accent={accent} /><ValueControl label="B" value={counter.secondaryValue ?? 0} onMinus={() => onChangeCounter(playerId, counter.id, 'secondaryValue', -1)} onPlus={() => onChangeCounter(playerId, counter.id, 'secondaryValue', 1)} accent={accent} /></>}{kind === 'toggle' && <Pressable onPress={() => onToggleCounter(playerId, counter.id)} style={[styles.toggleButton, counter.active && { backgroundColor: accent }]}><Text style={styles.toggleText}>{counter.active ? 'ACTIVE' : 'INACTIVE'}</Text></Pressable>}{deleteId === counter.id && <Pressable onPress={() => onRemoveCounter(playerId, counter.id)} style={styles.deleteCounter}><Text style={styles.deleteText}>×</Text></Pressable>}</Pressable></Animated.View>;
 }
 
 function ValueControl({ label, value, onMinus, onPlus, accent }: { label?: string; value: number; onMinus: () => void; onPlus: () => void; accent: string }) {
@@ -376,10 +382,89 @@ function ValueControl({ label, value, onMinus, onPlus, accent }: { label?: strin
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#080A0F', paddingHorizontal: 12, paddingBottom: 8 }, topBar: { height: 68, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 }, topButton: { minWidth: 62, paddingVertical: 9, paddingHorizontal: 7, borderRadius: 11, backgroundColor: '#151820', alignItems: 'center' }, settingsButton: { width: 44, height: 44, minWidth: 44, borderRadius: 12, backgroundColor: '#151820', borderWidth: 1, alignItems: 'center', justifyContent: 'center', zIndex: 20, elevation: 10 }, settingsText: { color: '#C8CBD4', fontSize: 20, fontWeight: '900' }, disabledButton: { opacity: 0.35 }, topButtonText: { color: '#AEB3C1', fontSize: 8, fontWeight: '900' }, turnStatus: { flex: 1, alignItems: 'center' }, gameMode: { fontSize: 7, fontWeight: '900' }, turnLabel: { color: '#676D7D', fontSize: 7, fontWeight: '900' }, turnName: { color: '#F4F3FF', fontSize: 14, fontWeight: '900' },
-  boardScroll: { flex: 1, minHeight: 0 }, grid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8, paddingBottom: 18 }, panel: { width: '48.5%', minHeight: 230, borderRadius: 18, borderWidth: 2, alignItems: 'center', padding: 8, paddingTop: 16, elevation: 5 }, activeBadge: { position: 'absolute', top: 7, right: 9, fontSize: 7, fontWeight: '900' }, playerName: { fontSize: 10, fontWeight: '900' }, metric: { color: '#5F6573', fontSize: 7, fontWeight: '900' }, value: { fontSize: 43, lineHeight: 46, fontWeight: '900' }, controls: { flexDirection: 'row', gap: 5 }, counterButton: { minWidth: 42, paddingVertical: 7, borderRadius: 9, backgroundColor: '#222630', borderWidth: 1, alignItems: 'center' }, pressedButton: { transform: [{ scale: 0.9 }], opacity: 0.75 }, counterButtonText: { color: '#E5E1FF', fontSize: 12, fontWeight: '900' },
-  manaRail: { position: 'absolute', left: 6, top: 8, zIndex: 4, alignItems: 'flex-start' }, manaButton: { width: 46, minHeight: 42, borderRadius: 10, backgroundColor: '#27213F', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }, manaTitle: { fontSize: 6, fontWeight: '900' }, manaTotal: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' }, manaDrawer: { marginTop: 5, width: 122, borderRadius: 12, backgroundColor: '#171A22', borderWidth: 1, padding: 7, gap: 5 }, chooseColors: { fontSize: 7, fontWeight: '900', textAlign: 'center', paddingVertical: 5 }, emptyText: { color: '#757B8A', fontSize: 8, textAlign: 'center', paddingVertical: 6 }, manaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, manaSymbol: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
-  playerCounters: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 9, justifyContent: 'center' }, trackedCounter: { minWidth: 96, minHeight: 48, borderRadius: 10, backgroundColor: '#1B1E27', paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' }, statsCounter: { minWidth: 145 }, trackedLabel: { color: '#9DA3B2', fontSize: 7, fontWeight: '900', textAlign: 'center', marginBottom: 2 }, valueControl: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }, smallControl: { fontSize: 17, fontWeight: '900', paddingHorizontal: 5 }, trackedValue: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' }, statLabel: { color: '#777D8D', fontSize: 7, fontWeight: '900' }, toggleButton: { borderRadius: 8, backgroundColor: '#242833', paddingVertical: 7, paddingHorizontal: 10, alignItems: 'center' }, toggleActive: { backgroundColor: '#4D3FA3' }, toggleText: { color: '#FFFFFF', fontSize: 8, fontWeight: '900' }, deleteCounter: { position: 'absolute', right: -5, top: -7, width: 22, height: 22, borderRadius: 11, backgroundColor: '#FF5F6D', alignItems: 'center', justifyContent: 'center' }, deleteText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' }, addCounterChip: { minWidth: 96, height: 48, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' }, addCounterText: { fontSize: 8, fontWeight: '900' },
-  turnControls: { flexDirection: 'row', gap: 8, height: 62, paddingTop: 4 }, phaseTrack: { alignItems: 'center', gap: 6 }, phaseChip: { minWidth: 58, height: 42, borderRadius: 11, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#151820', borderWidth: 1, borderColor: '#252936' }, activePhaseChip: { backgroundColor: '#312A59' }, phaseText: { color: '#737988', fontSize: 8, fontWeight: '900' }, activePhaseText: { color: '#E3DFFF' }, nextButton: { width: 170, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }, nextButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' }, nextButtonHint: { color: '#D9D4FF', fontSize: 7, fontWeight: '800' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', padding: 18 }, modalCard: { width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18 }, nameCard: { width: '100%', maxWidth: 430, borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18 }, manaPickerCard: { width: '100%', maxWidth: 460, borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18, gap: 14 }, settingsCard: { width: '100%', maxWidth: 390, borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18, gap: 12 }, modalTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' }, modalSubtitle: { color: '#8E94A6', fontSize: 10, marginTop: 4, marginBottom: 10 }, endGameButton: { borderRadius: 13, backgroundColor: '#4A1E26', borderWidth: 1, borderColor: '#8B3948', paddingVertical: 14, alignItems: 'center' }, endGameText: { color: '#FFB5BE', fontSize: 12, fontWeight: '900' }, closeSettings: { paddingVertical: 10, alignItems: 'center' }, nameInput: { marginTop: 14, borderRadius: 12, borderWidth: 1, borderColor: '#3B4150', backgroundColor: '#1A1D26', color: '#FFFFFF', fontSize: 18, fontWeight: '800', paddingHorizontal: 14, paddingVertical: 12 }, pickerScroll: { maxHeight: 280 }, groupTitle: { color: '#777D8D', fontSize: 8, fontWeight: '900', marginTop: 8, marginBottom: 6 }, roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, roleButton: { width: '31.5%', minHeight: 58, borderRadius: 12, backgroundColor: '#1A1D26', borderWidth: 1, borderColor: '#2A2F3C', padding: 8, justifyContent: 'center' }, selectedRole: { borderColor: '#8F7CFF', backgroundColor: '#2C2750' }, suggestedRole: { borderColor: '#57C7B6' }, roleName: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' }, roleType: { color: '#686E7C', fontSize: 7, fontWeight: '800', marginTop: 3 }, expiryLabel: { color: '#777D8D', fontSize: 8, fontWeight: '900', marginTop: 12, marginBottom: 7 }, expiryRow: { flexDirection: 'row', gap: 8 }, expiryButton: { flex: 1, minHeight: 44, borderRadius: 12, backgroundColor: '#1A1D26', borderWidth: 1, borderColor: '#2A2F3C', alignItems: 'center', justifyContent: 'center' }, modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 }, cancelButton: { paddingVertical: 12, paddingHorizontal: 18 }, cancelText: { color: '#8E94A6', fontSize: 11, fontWeight: '900' }, addButton: { borderRadius: 12, backgroundColor: '#7560FF', paddingVertical: 12, paddingHorizontal: 20, alignItems: 'center' }, addText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' }, manaPickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, manaPickerButton: { width: '31%', minHeight: 62, borderRadius: 12, backgroundColor: '#1A1D26', borderWidth: 1, borderColor: '#2A2F3C', alignItems: 'center', justifyContent: 'center' },
+  gradientRoot: { flex: 1 },
+  gameWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4,6,10,0.48)' },
+  safeArea: { flex: 1, paddingHorizontal: 12, paddingBottom: 8 },
+  topBar: { height: 68, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
+  topButton: { minWidth: 62, paddingVertical: 9, paddingHorizontal: 7, borderRadius: 11, backgroundColor: 'rgba(21,24,32,0.88)', alignItems: 'center' },
+  settingsButton: { width: 44, height: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', zIndex: 20, elevation: 10 },
+  settingsText: { color: '#F3F4F7', fontSize: 22, fontWeight: '900' },
+  disabledButton: { opacity: 0.35 },
+  topButtonText: { color: '#E4E7EC', fontSize: 8, fontWeight: '900' },
+  turnStatus: { flex: 1, alignItems: 'center' },
+  gameMode: { fontSize: 7, fontWeight: '900' },
+  turnLabel: { color: '#C3C7D0', fontSize: 7, fontWeight: '900' },
+  turnName: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  boardScroll: { flex: 1, minHeight: 0 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 8, paddingBottom: 18 },
+  panel: { width: '48.5%', minHeight: 230, borderRadius: 18, borderWidth: 2, alignItems: 'center', padding: 8, paddingTop: 16, elevation: 5 },
+  activeBadge: { position: 'absolute', top: 7, right: 9, fontSize: 7, fontWeight: '900' },
+  playerName: { fontSize: 10, fontWeight: '900' },
+  metric: { color: '#A6ACB7', fontSize: 7, fontWeight: '900' },
+  value: { fontSize: 43, lineHeight: 46, fontWeight: '900' },
+  controls: { flexDirection: 'row', gap: 5 },
+  counterButton: { minWidth: 42, paddingVertical: 7, borderRadius: 9, backgroundColor: '#222630', borderWidth: 1, alignItems: 'center' },
+  pressedButton: { transform: [{ scale: 0.9 }], opacity: 0.75 },
+  counterButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  manaRail: { position: 'absolute', left: 6, top: 8, zIndex: 4, alignItems: 'flex-start' },
+  manaButton: { width: 46, minHeight: 42, borderRadius: 10, backgroundColor: '#171A22', borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  manaTitle: { fontSize: 6, fontWeight: '900' },
+  manaTotal: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
+  manaDrawer: { marginTop: 5, width: 122, borderRadius: 12, backgroundColor: '#171A22', borderWidth: 1, padding: 7, gap: 5 },
+  chooseColors: { fontSize: 7, fontWeight: '900', textAlign: 'center', paddingVertical: 5 },
+  emptyText: { color: '#9AA0AD', fontSize: 8, textAlign: 'center', paddingVertical: 6 },
+  manaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  manaSymbol: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  playerCounters: { width: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 9, justifyContent: 'center' },
+  trackedCounter: { minWidth: 96, minHeight: 48, borderRadius: 10, backgroundColor: '#1B1E27', paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'center' },
+  statsCounter: { minWidth: 145 },
+  trackedLabel: { color: '#B5BBC7', fontSize: 7, fontWeight: '900', textAlign: 'center', marginBottom: 2 },
+  valueControl: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
+  smallControl: { fontSize: 17, fontWeight: '900', paddingHorizontal: 5 },
+  trackedValue: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
+  statLabel: { color: '#9AA0AD', fontSize: 7, fontWeight: '900' },
+  toggleButton: { borderRadius: 8, backgroundColor: '#242833', paddingVertical: 7, paddingHorizontal: 10, alignItems: 'center' },
+  toggleText: { color: '#FFFFFF', fontSize: 8, fontWeight: '900' },
+  deleteCounter: { position: 'absolute', right: -5, top: -7, width: 22, height: 22, borderRadius: 11, backgroundColor: '#FF5F6D', alignItems: 'center', justifyContent: 'center' },
+  deleteText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
+  addCounterChip: { minWidth: 96, height: 48, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  addCounterText: { fontSize: 8, fontWeight: '900' },
+  turnControls: { flexDirection: 'row', gap: 8, height: 62, paddingTop: 4 },
+  phaseTrack: { alignItems: 'center', gap: 6 },
+  phaseChip: { minWidth: 58, height: 42, borderRadius: 11, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(21,24,32,0.9)', borderWidth: 1, borderColor: '#353B47' },
+  activePhaseChip: { borderWidth: 2 },
+  phaseText: { color: '#A8AEB9', fontSize: 8, fontWeight: '900' },
+  activePhaseText: { color: '#FFFFFF' },
+  nextButton: { width: 170, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  nextButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  nextButtonHint: { color: '#FFFFFF', fontSize: 7, fontWeight: '800' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', padding: 18 },
+  modalCard: { width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18 },
+  nameCard: { width: '100%', maxWidth: 430, borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18 },
+  manaPickerCard: { width: '100%', maxWidth: 460, borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18, gap: 14 },
+  settingsCard: { width: '100%', maxWidth: 390, borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18, gap: 12 },
+  modalTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
+  modalSubtitle: { color: '#8E94A6', fontSize: 10, marginTop: 4, marginBottom: 10 },
+  endGameButton: { borderRadius: 13, backgroundColor: '#4A1E26', borderWidth: 1, borderColor: '#8B3948', paddingVertical: 14, alignItems: 'center' },
+  endGameText: { color: '#FFB5BE', fontSize: 12, fontWeight: '900' },
+  closeSettings: { paddingVertical: 10, alignItems: 'center' },
+  nameInput: { marginTop: 14, borderRadius: 12, borderWidth: 1, borderColor: '#3B4150', backgroundColor: '#1A1D26', color: '#FFFFFF', fontSize: 18, fontWeight: '800', paddingHorizontal: 14, paddingVertical: 12 },
+  pickerScroll: { maxHeight: 280 },
+  groupTitle: { color: '#9AA0AD', fontSize: 8, fontWeight: '900', marginTop: 8, marginBottom: 6 },
+  roleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  roleButton: { width: '31.5%', minHeight: 58, borderRadius: 12, backgroundColor: '#1A1D26', borderWidth: 1, borderColor: '#2A2F3C', padding: 8, justifyContent: 'center' },
+  selectedRole: { borderWidth: 2 },
+  suggestedRole: { borderColor: '#57C7B6' },
+  roleName: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
+  roleType: { color: '#8A909D', fontSize: 7, fontWeight: '800', marginTop: 3 },
+  expiryLabel: { color: '#9AA0AD', fontSize: 8, fontWeight: '900', marginTop: 12, marginBottom: 7 },
+  expiryRow: { flexDirection: 'row', gap: 8 },
+  expiryButton: { flex: 1, minHeight: 44, borderRadius: 12, backgroundColor: '#1A1D26', borderWidth: 1, borderColor: '#2A2F3C', alignItems: 'center', justifyContent: 'center' },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
+  cancelButton: { paddingVertical: 12, paddingHorizontal: 18 },
+  cancelText: { color: '#8E94A6', fontSize: 11, fontWeight: '900' },
+  addButton: { borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20, alignItems: 'center' },
+  addText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
+  manaPickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  manaPickerButton: { width: '31%', minHeight: 62, borderRadius: 12, backgroundColor: '#1A1D26', borderWidth: 1, borderColor: '#2A2F3C', alignItems: 'center', justifyContent: 'center' },
 });

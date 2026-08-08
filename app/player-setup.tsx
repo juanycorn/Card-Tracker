@@ -1,9 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getRulesPack, RULES_PRESETS, type ManaColor } from '../games';
-import { DEFAULT_PLAYER_THEME_ID, MANA_COLOR_NAMES, MANA_THEME_COLORS, getManaTheme, getManaThemeId } from '../themes';
+import { DEFAULT_PLAYER_THEME_ID, MANA_COLOR_NAMES, MANA_THEME_COLORS, getCustomThemeId, getManaTheme, getManaThemeId, getPlayerTheme } from '../themes';
+import { loadCustomThemes, type CustomTheme } from '../storage/customThemes';
 import { loadDeckProfiles, type DeckProfile } from '../storage/deckProfiles';
 import { saveGame, type SavedPlayer } from '../storage/gameSave';
 
@@ -22,6 +23,7 @@ function contrastTextColor(background: string): string {
 
 type PlayerChoice = {
   profileId?: string;
+  customThemeId?: string;
   manaColors: ManaColor[];
 };
 
@@ -34,20 +36,27 @@ export default function PlayerSetupScreen() {
   const rules = getRulesPack(preset.game);
 
   const [profiles, setProfiles] = useState<DeckProfile[]>([]);
+  const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
   const [choices, setChoices] = useState<PlayerChoice[]>(() => Array.from({ length: playerCount }, makeChoice));
   const [playerIndex, setPlayerIndex] = useState(0);
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    loadDeckProfiles().then((items) => { if (active) setProfiles(items); });
+    Promise.all([loadDeckProfiles(), loadCustomThemes()]).then(([profileItems, themeItems]) => {
+      if (!active) return;
+      setProfiles(profileItems);
+      setCustomThemes(themeItems);
+    });
     return () => { active = false; };
   }, []));
 
   const compatibleProfiles = useMemo(() => profiles.filter((profile) => profile.presetId === preset.id), [profiles, preset.id]);
   const current = choices[playerIndex] ?? makeChoice();
   const selectedProfile = profiles.find((profile) => profile.id === current.profileId);
+  const selectedCustomTheme = customThemes.find((theme) => theme.id === current.customThemeId);
   const selectedManaColors = selectedProfile?.manaColors.length ? selectedProfile.manaColors : current.manaColors;
-  const selectedTheme = getManaTheme(selectedManaColors);
+  const fallbackTheme = getManaTheme(selectedManaColors);
+  const selectedTheme = selectedCustomTheme ? getPlayerTheme(getCustomThemeId(selectedCustomTheme)) : fallbackTheme;
   const confirmTextColor = contrastTextColor(selectedTheme.colors.primary);
 
   const selectProfile = (profile?: DeckProfile) => {
@@ -57,6 +66,12 @@ export default function PlayerSetupScreen() {
           profileId: profile?.id,
           manaColors: profile?.manaColors.length ? profile.manaColors : choice.manaColors,
         }
+      : choice));
+  };
+
+  const selectCustomTheme = (theme?: CustomTheme) => {
+    setChoices((items) => items.map((choice, index) => index === playerIndex
+      ? { ...choice, customThemeId: theme?.id }
       : choice));
   };
 
@@ -77,6 +92,7 @@ export default function PlayerSetupScreen() {
     const savedPlayers: SavedPlayer[] = Array.from({ length: playerCount }, (_, index) => {
       const choice = choices[index] ?? makeChoice();
       const profile = profiles.find((item) => item.id === choice.profileId);
+      const customTheme = customThemes.find((item) => item.id === choice.customThemeId);
       const manaColors = profile?.manaColors.length ? profile.manaColors : choice.manaColors;
       return {
         id: index + 1,
@@ -85,7 +101,7 @@ export default function PlayerSetupScreen() {
         counters: [],
         mana: { ...EMPTY_MANA },
         manaColors: rules.supportsMana ? manaColors : [],
-        themeId: getManaThemeId(manaColors),
+        themeId: customTheme ? getCustomThemeId(customTheme) : getManaThemeId(manaColors),
         deckProfileId: profile?.id,
         preferredCounters: profile?.preferredCounters ?? [],
       };
@@ -131,14 +147,15 @@ export default function PlayerSetupScreen() {
 
   return (
     <LinearGradient colors={selectedTheme.gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradientRoot}>
-      <View style={styles.darkWash} />
+      {!!selectedTheme.backgroundImageUri && <Image pointerEvents="none" source={{ uri: selectedTheme.backgroundImageUri }} style={styles.fullBackgroundImage} resizeMode="cover" />}
+      <View pointerEvents="none" style={styles.darkWash} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Pressable onPress={() => playerIndex === 0 ? router.back() : setPlayerIndex((index) => index - 1)} style={styles.backButton}><Text style={styles.backText}>‹ BACK</Text></Pressable>
           <View style={styles.headerCenter}>
             <Text style={styles.eyebrow}>{preset.game} · {preset.mode}</Text>
             <Text style={styles.title}>PLAYER {playerIndex + 1}</Text>
-            <Text style={styles.subtitle}>Choose a deck profile or pick your mana colors.</Text>
+            <Text style={styles.subtitle}>Choose a deck profile, mana identity, and optional custom theme.</Text>
           </View>
           <Text style={styles.progress}>{playerIndex + 1}/{playerCount}</Text>
         </View>
@@ -161,8 +178,8 @@ export default function PlayerSetupScreen() {
           </View>
           {compatibleProfiles.length === 0 && <Text style={styles.emptyHint}>No saved profiles for this game mode yet.</Text>}
 
-          <Text style={styles.sectionLabel}>DEFAULT THEME COLORS</Text>
-          <Text style={styles.helpText}>{selectedProfile ? 'This deck profile supplies its saved mana colors.' : 'Pick the mana colors for this player. CardSync blends them into the default player theme.'}</Text>
+          <Text style={styles.sectionLabel}>DEFAULT MANA THEME</Text>
+          <Text style={styles.helpText}>{selectedProfile ? 'This deck profile supplies its saved mana colors.' : 'Pick the mana colors for this player. These are used whenever no custom theme is selected.'}</Text>
           <View style={styles.manaRow}>
             {MANA_COLORS.map((color) => {
               const selected = selectedManaColors.includes(color);
@@ -174,11 +191,37 @@ export default function PlayerSetupScreen() {
             })}
           </View>
 
+          <Text style={styles.sectionLabel}>CUSTOM THEME</Text>
+          <Text style={styles.helpText}>Optional. A custom theme overrides the mana-generated look for this player.</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.customThemeRow}>
+            <Pressable onPress={() => selectCustomTheme()} style={[styles.customThemeCard, !current.customThemeId && styles.customThemeSelected]}>
+              <LinearGradient colors={fallbackTheme.gradientColors} style={styles.customThemePreview}>
+                <View style={styles.customThemeWash} />
+                <Text style={styles.customThemeName}>MANA DEFAULT</Text>
+                <Text style={styles.customThemeMeta}>{fallbackTheme.name}</Text>
+              </LinearGradient>
+            </Pressable>
+            {customThemes.map((theme) => (
+              <Pressable key={theme.id} onPress={() => selectCustomTheme(theme)} style={[styles.customThemeCard, current.customThemeId === theme.id && { borderColor: theme.colors.accent, borderWidth: 3 }]}>
+                <View style={[styles.customThemePreview, { backgroundColor: theme.colors.background }]}>
+                  {!!theme.assets.previewImage.uri && <Image source={{ uri: theme.assets.previewImage.uri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />}
+                  {!theme.assets.previewImage.uri && !!theme.assets.backgroundImage.uri && <Image source={{ uri: theme.assets.backgroundImage.uri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />}
+                  <View style={styles.customThemeWash} />
+                  <View style={[styles.customThemeAccent, { backgroundColor: theme.colors.primary }]} />
+                  <Text style={[styles.customThemeName, { color: theme.colors.text }]}>{theme.name}</Text>
+                  <Text style={[styles.customThemeMeta, { color: theme.colors.mutedText }]}>{theme.description || 'Custom theme'}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+          {customThemes.length === 0 && <Text style={styles.emptyHint}>No custom themes yet. Create one from the home screen.</Text>}
+
           <LinearGradient colors={selectedTheme.gradientColors} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={[styles.confirmCard, { borderColor: selectedTheme.colors.accent }]}>
+            {!!selectedTheme.backgroundImageUri && <Image source={{ uri: selectedTheme.backgroundImageUri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />}
             <View style={styles.previewWash} />
             <Text style={styles.confirmLabel}>PLAYER {playerIndex + 1} READY</Text>
             <Text style={styles.confirmTitle}>{selectedProfile?.name ?? `Player ${playerIndex + 1}`}</Text>
-            <Text style={styles.confirmMeta}>{selectedTheme.name} default theme</Text>
+            <Text style={styles.confirmMeta}>{selectedCustomTheme?.name ?? `${fallbackTheme.name} default`} theme</Text>
           </LinearGradient>
         </ScrollView>
 
@@ -195,7 +238,8 @@ export default function PlayerSetupScreen() {
 
 const styles = StyleSheet.create({
   gradientRoot: { flex: 1 },
-  darkWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4,6,10,0.72)' },
+  fullBackgroundImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  darkWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4,6,10,0.66)' },
   safeArea: { flex: 1 },
   header: { minHeight: 82, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 12 },
   backButton: { minWidth: 78, paddingVertical: 10, borderRadius: 12, backgroundColor: 'rgba(17,20,27,0.9)', alignItems: 'center' },
@@ -222,8 +266,16 @@ const styles = StyleSheet.create({
   manaDot: { width: 14, height: 14, borderRadius: 7 },
   manaLetter: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
   manaName: { color: '#B8BDC8', fontSize: 8, fontWeight: '700' },
+  customThemeRow: { gap: 10, paddingVertical: 2, paddingRight: 8 },
+  customThemeCard: { width: 150, height: 92, borderRadius: 14, borderWidth: 1, borderColor: '#3A404D', overflow: 'hidden' },
+  customThemeSelected: { borderWidth: 3, borderColor: '#FFFFFF' },
+  customThemePreview: { flex: 1, padding: 11, justifyContent: 'flex-end', overflow: 'hidden' },
+  customThemeWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.38)' },
+  customThemeAccent: { width: 26, height: 5, borderRadius: 3, marginBottom: 7 },
+  customThemeName: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
+  customThemeMeta: { color: '#D2D5DC', fontSize: 7, marginTop: 3 },
   confirmCard: { marginTop: 18, minHeight: 112, borderRadius: 16, borderWidth: 2, padding: 14, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  previewWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.34)' },
+  previewWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
   confirmLabel: { color: '#E1E3E8', fontSize: 8, fontWeight: '900', letterSpacing: 1.4 },
   confirmTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: 3 },
   confirmMeta: { color: '#F0F1F4', fontSize: 10, marginTop: 3 },

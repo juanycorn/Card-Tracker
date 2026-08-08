@@ -41,22 +41,32 @@ export default function PokemonPlayerSetupScreen() {
 
   const current = choices[playerIndex] ?? makeChoice();
   const selectedProfile = profiles.find((profile) => profile.id === current.profileId);
-  const generatedTheme = getPokemonTheme(current.energyTypes);
+  const selectedTypes = selectedProfile?.pokemonEnergyTypes?.length ? selectedProfile.pokemonEnergyTypes : current.energyTypes;
+  const generatedTheme = getPokemonTheme(selectedTypes);
   const selectedTheme = selectedProfile?.themeId?.startsWith('custom:') ? getPlayerTheme(selectedProfile.themeId) : generatedTheme;
   const confirmText = contrastTextColor(selectedTheme.colors.primary);
 
-  const selectProfile = (profile?: BattleProfile) => setChoices((items) => items.map((choice, index) => index === playerIndex ? { ...choice, profileId: profile?.id } : choice));
-  const toggleEnergy = (type: PokemonEnergyType) => setChoices((items) => items.map((choice, index) => {
+  const selectProfile = (profile?: BattleProfile) => setChoices((items) => items.map((choice, index) => {
     if (index !== playerIndex) return choice;
-    const energyTypes = choice.energyTypes.includes(type) ? choice.energyTypes.filter((item) => item !== type) : [...choice.energyTypes, type];
-    return { ...choice, energyTypes };
+    if (!profile) return { ...choice, profileId: undefined };
+    return { ...choice, profileId: profile.id, energyTypes: profile.pokemonEnergyTypes ?? [] };
   }));
+
+  const toggleEnergy = (type: PokemonEnergyType) => {
+    if (selectedProfile) return;
+    setChoices((items) => items.map((choice, index) => {
+      if (index !== playerIndex) return choice;
+      const energyTypes = choice.energyTypes.includes(type) ? choice.energyTypes.filter((item) => item !== type) : [...choice.energyTypes, type];
+      return { ...choice, energyTypes };
+    }));
+  };
 
   const finish = async () => {
     const players: PokemonSavedPlayer[] = Array.from({ length: playerCount }, (_, index) => {
       const choice = choices[index] ?? makeChoice();
       const profile = profiles.find((item) => item.id === choice.profileId);
-      const defaultThemeId = getPokemonThemeId(choice.energyTypes);
+      const energyTypes = profile?.pokemonEnergyTypes?.length ? profile.pokemonEnergyTypes : choice.energyTypes;
+      const defaultThemeId = getPokemonThemeId(energyTypes);
       return {
         id: index + 1,
         name: profile?.playerName || profile?.name || `PLAYER ${index + 1}`,
@@ -67,7 +77,7 @@ export default function PokemonPlayerSetupScreen() {
         themeId: profile?.themeId?.startsWith('custom:') ? profile.themeId : defaultThemeId,
         deckProfileId: profile?.id,
         preferredCounters: profile?.preferredCounters ?? [],
-        pokemonEnergyTypes: choice.energyTypes,
+        pokemonEnergyTypes: energyTypes,
         pokemonEnergy: emptyPokemonEnergy(),
       };
     });
@@ -91,30 +101,34 @@ export default function PokemonPlayerSetupScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable onPress={() => playerIndex === 0 ? router.back() : setPlayerIndex((value) => value - 1)} style={styles.back}><Text style={styles.backText}>‹ BACK</Text></Pressable>
-        <View style={styles.headerCenter}><Text style={styles.eyebrow}>POKÉMON TCG</Text><Text style={styles.title}>PLAYER {playerIndex + 1}</Text><Text style={styles.subtitle}>Choose a Battle Profile, then the Pokémon types this build uses.</Text></View>
+        <View style={styles.headerCenter}><Text style={styles.eyebrow}>POKÉMON TCG</Text><Text style={styles.title}>PLAYER {playerIndex + 1}</Text><Text style={styles.subtitle}>Choose a Battle Profile. Its saved Pokémon types and theme come with it.</Text></View>
         <Text style={styles.progress}>{playerIndex + 1}/{playerCount}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.section}>BATTLE PROFILE</Text>
         <View style={styles.grid}>
-          <Pressable onPress={() => selectProfile()} style={[styles.card, !current.profileId && styles.selected]}><Text style={styles.cardTitle}>No Profile</Text><Text style={styles.cardMeta}>Manual Pokémon setup</Text></Pressable>
-          {profiles.map((profile) => <Pressable key={profile.id} onPress={() => selectProfile(profile)} style={[styles.card, current.profileId === profile.id && styles.selected]}><Text style={styles.cardTitle}>{profile.name}</Text><Text style={styles.cardMeta}>{profile.playerName || 'Pokémon Battle Profile'}</Text></Pressable>)}
+          <Pressable onPress={() => selectProfile()} style={[styles.card, !current.profileId && styles.selected]}><Text style={styles.cardTitle}>No Profile</Text><Text style={styles.cardMeta}>Choose Pokémon types manually</Text></Pressable>
+          {profiles.map((profile) => <Pressable key={profile.id} onPress={() => selectProfile(profile)} style={[styles.card, current.profileId === profile.id && styles.selected]}><Text style={styles.cardTitle}>{profile.name}</Text><Text style={styles.cardMeta}>{profile.playerName || 'Pokémon Battle Profile'}</Text><Text style={styles.cardTypes}>{profile.pokemonEnergyTypes?.length ? profile.pokemonEnergyTypes.map((type) => POKEMON_ENERGY_LABELS[type]).join(' / ') : 'No saved types'}</Text></Pressable>)}
         </View>
 
-        <Text style={styles.section}>POKÉMON / ENERGY TYPES</Text>
-        <Text style={styles.help}>These types control the default theme and which Energy counters appear during the match.</Text>
-        <View style={styles.energyGrid}>
-          {POKEMON_ENERGY_TYPES.map((type) => {
-            const active = current.energyTypes.includes(type);
-            const color = POKEMON_ENERGY_COLORS[type];
-            return <Pressable key={type} onPress={() => toggleEnergy(type)} style={[styles.energyCard, active && { borderColor: color, borderWidth: 3 }]}>
-              <View style={[styles.dot, { backgroundColor: color }]} />
-              <Text style={styles.energyName}>{POKEMON_ENERGY_LABELS[type]}</Text>
-              {type === 'fairy' && <Text style={styles.legacy}>LEGACY</Text>}
-            </Pressable>;
-          })}
-        </View>
+        {!selectedProfile && <>
+          <Text style={styles.section}>POKÉMON / ENERGY TYPES</Text>
+          <Text style={styles.help}>These types control the default theme and which Energy counters appear during the match.</Text>
+          <View style={styles.energyGrid}>
+            {POKEMON_ENERGY_TYPES.map((type) => {
+              const active = selectedTypes.includes(type);
+              const color = POKEMON_ENERGY_COLORS[type];
+              return <Pressable key={type} onPress={() => toggleEnergy(type)} style={[styles.energyCard, active && { borderColor: color, borderWidth: 3 }]}>
+                <View style={[styles.dot, { backgroundColor: color }]} />
+                <Text style={styles.energyName}>{POKEMON_ENERGY_LABELS[type]}</Text>
+                {type === 'fairy' && <Text style={styles.legacy}>LEGACY</Text>}
+              </Pressable>;
+            })}
+          </View>
+        </>}
+
+        {selectedProfile && <View style={styles.profileIdentity}><Text style={styles.identityLabel}>SAVED TYPE IDENTITY</Text><Text style={styles.identityText}>{selectedTypes.length ? selectedTypes.map((type) => POKEMON_ENERGY_LABELS[type]).join(' · ') : 'Colorless default'}</Text></View>}
 
         <LinearGradient colors={selectedTheme.gradientColors} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={[styles.preview, { borderColor: selectedTheme.colors.accent }]}>
           <View style={styles.previewWash} />
@@ -145,15 +159,19 @@ const styles = StyleSheet.create({
   section: { color: '#F0F1F4', fontSize: 9, fontWeight: '900', letterSpacing: 1.6, marginTop: 12, marginBottom: 7 },
   help: { color: '#D0D4DC', fontSize: 9, marginBottom: 9 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  card: { width: '31.5%', minHeight: 76, flexGrow: 1, borderRadius: 14, borderWidth: 1, borderColor: '#4A5060', backgroundColor: 'rgba(17,20,27,0.92)', padding: 12, justifyContent: 'center' },
+  card: { width: '31.5%', minHeight: 82, flexGrow: 1, borderRadius: 14, borderWidth: 1, borderColor: '#4A5060', backgroundColor: 'rgba(17,20,27,0.92)', padding: 12, justifyContent: 'center' },
   selected: { borderWidth: 3, borderColor: '#FFFFFF', backgroundColor: 'rgba(28,32,41,0.96)' },
   cardTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
   cardMeta: { color: '#B8BEC9', fontSize: 9, marginTop: 4 },
+  cardTypes: { color: '#D7DBE2', fontSize: 7, marginTop: 4, fontWeight: '800' },
   energyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   energyCard: { width: '31%', minHeight: 60, flexGrow: 1, borderRadius: 13, borderWidth: 1, borderColor: '#4A5060', backgroundColor: 'rgba(21,24,32,0.94)', paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
   dot: { width: 16, height: 16, borderRadius: 8 },
   energyName: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },
   legacy: { color: '#AAB0BB', fontSize: 6, fontWeight: '900' },
+  profileIdentity: { marginTop: 14, borderRadius: 14, backgroundColor: 'rgba(17,20,27,0.86)', borderWidth: 1, borderColor: '#454B58', padding: 12 },
+  identityLabel: { color: '#AEB4BF', fontSize: 7, fontWeight: '900', letterSpacing: 1.2 },
+  identityText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', marginTop: 4 },
   preview: { marginTop: 18, minHeight: 105, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   previewWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
   previewSmall: { color: '#E8EBF0', fontSize: 8, fontWeight: '900', letterSpacing: 1.3 },

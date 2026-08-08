@@ -1,5 +1,5 @@
 import { BASE_COUNTER_LABELS } from '../games/counters';
-import type { CounterRole } from '../games';
+import type { CounterRole, ManaColor } from '../games';
 
 export type ThemeAnimation = 'none' | 'pulse' | 'shake' | 'spring' | 'glow';
 
@@ -8,6 +8,7 @@ export type PlayerTheme = {
   name: string;
   example: string;
   labels: Record<CounterRole, string>;
+  gradientColors: readonly [string, string, ...string[]];
   colors: {
     primary: string;
     accent: string;
@@ -44,18 +45,35 @@ export type PlayerTheme = {
   };
 };
 
-// Backwards-compatible alias while older screens still import ThemePack.
 export type ThemePack = PlayerTheme;
+
+export const MANA_THEME_COLORS: Record<ManaColor, string> = {
+  W: '#E8D9B5',
+  U: '#3B8EDB',
+  B: '#51405B',
+  R: '#D95345',
+  G: '#3E9B5F',
+  C: '#7B8492',
+};
+
+export const MANA_COLOR_NAMES: Record<ManaColor, string> = {
+  W: 'White',
+  U: 'Blue',
+  B: 'Black',
+  R: 'Red',
+  G: 'Green',
+  C: 'Colorless',
+};
 
 const DEFAULT_THEME_VALUES = {
   colors: {
-    primary: '#7560FF',
-    accent: '#A899FF',
+    primary: '#7B8492',
+    accent: '#AAB1BC',
     background: '#080A0F',
     surface: '#11141B',
-    border: '#252936',
+    border: '#303642',
     text: '#FFFFFF',
-    mutedText: '#8E94A6',
+    mutedText: '#A0A6B3',
     lifeGain: '#4ADE80',
     lifeLoss: '#FF5F6D',
   },
@@ -75,104 +93,68 @@ const DEFAULT_THEME_VALUES = {
   typography: {},
 };
 
-function createTheme(theme: Pick<PlayerTheme, 'id' | 'name' | 'example' | 'labels'> & Partial<Omit<PlayerTheme, 'id' | 'name' | 'example' | 'labels'>>): PlayerTheme {
+const CHANNELS = [0, 2, 4] as const;
+
+function shade(hex: string, amount: number): string {
+  const clean = hex.replace('#', '');
+  const values = CHANNELS.map((index) => Math.max(0, Math.min(255, Math.round(parseInt(clean.slice(index, index + 2), 16) * amount))));
+  return `#${values.map((value) => value.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function normalizeManaColors(colors?: readonly ManaColor[]): ManaColor[] {
+  const unique = [...new Set(colors ?? [])];
+  return unique.length ? unique : ['C'];
+}
+
+export function getManaThemeId(colors?: readonly ManaColor[]): string {
+  return `mana:${normalizeManaColors(colors).join('-')}`;
+}
+
+export function getManaTheme(colors?: readonly ManaColor[]): PlayerTheme {
+  const manaColors = normalizeManaColors(colors);
+  const swatches = manaColors.map((color) => MANA_THEME_COLORS[color]);
+  const gradientColors = (swatches.length === 1 ? [shade(swatches[0], 0.62), swatches[0]] : swatches) as [string, string, ...string[]];
+  const primary = swatches[0];
+  const accent = swatches[swatches.length - 1];
+  const names = manaColors.map((color) => MANA_COLOR_NAMES[color]);
+
   return {
-    ...theme,
-    colors: { ...DEFAULT_THEME_VALUES.colors, ...theme.colors },
-    icons: { ...DEFAULT_THEME_VALUES.icons, ...theme.icons },
-    sounds: { ...DEFAULT_THEME_VALUES.sounds, ...theme.sounds },
-    animations: { ...DEFAULT_THEME_VALUES.animations, ...theme.animations },
-    typography: { ...DEFAULT_THEME_VALUES.typography, ...theme.typography },
+    id: getManaThemeId(manaColors),
+    name: names.join(' / '),
+    example: manaColors.join(' · '),
+    labels: BASE_COUNTER_LABELS,
+    gradientColors,
+    colors: {
+      ...DEFAULT_THEME_VALUES.colors,
+      primary,
+      accent,
+      background: shade(primary, 0.2),
+      surface: shade(primary, 0.3),
+      border: shade(accent, 0.72),
+      text: '#FFFFFF',
+      mutedText: '#B7BBC5',
+    },
+    icons: DEFAULT_THEME_VALUES.icons,
+    sounds: DEFAULT_THEME_VALUES.sounds,
+    animations: DEFAULT_THEME_VALUES.animations,
+    typography: DEFAULT_THEME_VALUES.typography,
   };
 }
 
-export const THEME_PACKS: PlayerTheme[] = [
-  createTheme({
-    id: 'arcane',
-    name: 'Arcane',
-    example: 'Enemy · Resource · Buff',
-    labels: BASE_COUNTER_LABELS,
-  }),
-  createTheme({
-    id: 'fantasy',
-    name: 'Fantasy Raid',
-    example: 'Goblins · Gold · Blessing',
-    labels: {
-      ...BASE_COUNTER_LABELS,
-      enemy: 'Enemy Modifier',
-      treasure: 'Gold',
-      food: 'Rations',
-      resource: 'Supplies',
-      buff: 'Blessing',
-      debuff: 'Curse',
-      objective: 'Quest',
-      poison: 'Venom',
-      energy: 'Stamina',
-      experience: 'Renown',
-      storm: 'Combo',
-      monarch: 'Crowned',
-      initiative: 'Dungeon Lead',
-      inspiration: 'Heroic Spark',
-    },
-    colors: {
-      primary: '#7A9B4A',
-      accent: '#D6B85A',
-      background: '#10130C',
-      surface: '#191D12',
-      border: '#46552D',
-      text: '#FFF8DE',
-      mutedText: '#AFA98C',
-      lifeGain: '#7ED957',
-      lifeLoss: '#D95D4F',
-    },
-    animations: { damage: 'shake', heal: 'pulse', turnStart: 'glow', counterAdd: 'spring' },
-  }),
-  createTheme({
-    id: 'scifi',
-    name: 'Sci-Fi',
-    example: 'Hostiles · Energy Cells · Upgrade',
-    labels: {
-      ...BASE_COUNTER_LABELS,
-      enemy: 'Target Modifier',
-      treasure: 'Credits',
-      food: 'Med Packs',
-      resource: 'Energy Cells',
-      buff: 'Upgrade',
-      debuff: 'Malfunction',
-      objective: 'Mission',
-      poison: 'Contamination',
-      energy: 'Charge',
-      experience: 'Intel',
-      storm: 'Chain',
-      monarch: 'Command',
-      initiative: 'Priority',
-      daynight: 'Cycle',
-      tempHp: 'Shield HP',
-      spellSlot: 'Ability Charge',
-    },
-    colors: {
-      primary: '#23C7D9',
-      accent: '#79F0FF',
-      background: '#061014',
-      surface: '#0B1C22',
-      border: '#1F5661',
-      text: '#E9FDFF',
-      mutedText: '#78A8B0',
-      lifeGain: '#43E6A5',
-      lifeLoss: '#FF647C',
-    },
-    animations: { damage: 'shake', heal: 'pulse', turnStart: 'glow', counterAdd: 'spring' },
-  }),
-];
+export const DEFAULT_PLAYER_THEME_ID = getManaThemeId(['C']);
 
-export const THEMES_BY_ID = Object.fromEntries(THEME_PACKS.map((theme) => [theme.id, theme])) as Record<string, PlayerTheme>;
+// Keep this export for older screens while custom/community themes are not yet enabled.
+export const THEME_PACKS: PlayerTheme[] = [getManaTheme(['C'])];
+export const THEMES_BY_ID: Record<string, PlayerTheme> = { [DEFAULT_PLAYER_THEME_ID]: THEME_PACKS[0] };
 
 export function getThemePack(id?: string): PlayerTheme {
-  return THEMES_BY_ID[id ?? 'arcane'] ?? THEMES_BY_ID.arcane;
+  if (id?.startsWith('mana:')) {
+    const colors = id.slice(5).split('-').filter((color): color is ManaColor => ['W', 'U', 'B', 'R', 'G', 'C'].includes(color));
+    return getManaTheme(colors);
+  }
+  return getManaTheme(['C']);
 }
 
 export function getPlayerTheme(id?: string): PlayerTheme {
   return getThemePack(id);
 }
-
-export const DEFAULT_PLAYER_THEME_ID = 'arcane';

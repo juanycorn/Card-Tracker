@@ -48,7 +48,7 @@ export default function HomeScreen() {
         <View style={styles.brandBlock}>
           <Text style={styles.eyebrow}>TABLETOP COMPANION</Text>
           <Text style={styles.logo}>Card<Text style={styles.logoAccent}>Sync</Text></Text>
-          <Text style={styles.tagline}>Your game. Your deck. Your theme.</Text>
+          <Text style={styles.tagline}>Your game. Your build. Your theme.</Text>
         </View>
 
         <View style={styles.actions}>
@@ -70,8 +70,8 @@ export default function HomeScreen() {
 
           <View style={styles.secondaryRow}>
             <Pressable onPress={() => router.push('/profiles')} style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
-              <Text style={styles.secondaryButtonText}>DECK PROFILES</Text>
-              <Text style={styles.availableNow}>CREATE · SAVE · PLAY</Text>
+              <Text style={styles.secondaryButtonText}>BATTLE PROFILES</Text>
+              <Text style={styles.availableNow}>BUILD · THEME · PLAY</Text>
             </Pressable>
             <Pressable onPress={() => router.push('/themes')} style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
               <Text style={styles.secondaryButtonText}>THEME CREATOR</Text>

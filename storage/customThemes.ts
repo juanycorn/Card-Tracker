@@ -36,11 +36,38 @@ export type CustomTheme = {
     healSound: ThemeAssetSlot;
     counterSound: ThemeAssetSlot;
     turnSound: ThemeAssetSlot;
-    music: ThemeAssetSlot;
+    turnMusic: ThemeAssetSlot;
+    combatMusic: ThemeAssetSlot;
+    winningMusic: ThemeAssetSlot;
+    desperationMusic: ThemeAssetSlot;
+    victoryMusic: ThemeAssetSlot;
+    defeatMusic: ThemeAssetSlot;
   };
   createdAt: number;
   updatedAt: number;
 };
+
+const emptyAssets = (): CustomTheme['assets'] => ({
+  backgroundImage: {},
+  previewImage: {},
+  damageSound: {},
+  healSound: {},
+  counterSound: {},
+  turnSound: {},
+  turnMusic: {},
+  combatMusic: {},
+  winningMusic: {},
+  desperationMusic: {},
+  victoryMusic: {},
+  defeatMusic: {},
+});
+
+function migrateTheme(theme: CustomTheme & { assets?: Record<string, ThemeAssetSlot> }): CustomTheme {
+  const assets = { ...emptyAssets(), ...(theme.assets ?? {}) } as CustomTheme['assets'];
+  const legacyMusic = (theme.assets as Record<string, ThemeAssetSlot> | undefined)?.music;
+  if (!assets.turnMusic.uri && legacyMusic?.uri) assets.turnMusic = legacyMusic;
+  return { ...theme, assets };
+}
 
 export function createCustomThemeDraft(): CustomTheme {
   const now = Date.now();
@@ -64,15 +91,7 @@ export function createCustomThemeDraft(): CustomTheme {
       turnStart: 'glow',
       counterAdd: 'spring',
     },
-    assets: {
-      backgroundImage: {},
-      previewImage: {},
-      damageSound: {},
-      healSound: {},
-      counterSound: {},
-      turnSound: {},
-      music: {},
-    },
+    assets: emptyAssets(),
     createdAt: now,
     updatedAt: now,
   };
@@ -83,7 +102,9 @@ export async function loadCustomThemes(): Promise<CustomTheme[]> {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw) as CustomTheme[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    const migrated = parsed.map((theme) => migrateTheme(theme));
+    return migrated;
   } catch {
     return [];
   }

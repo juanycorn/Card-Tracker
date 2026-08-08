@@ -33,7 +33,7 @@ function uriFor(theme: PlayerTheme, state: DynamicMusicState): string | undefine
 
 export function useDynamicThemeAudio(theme: PlayerTheme, state: DynamicMusicState) {
   const player = useAudioPlayer(null);
-  const currentUri = useRef<string | undefined>();
+  const currentUri = useRef<string | undefined>(undefined);
   const uri = uriFor(theme, state);
 
   useEffect(() => {

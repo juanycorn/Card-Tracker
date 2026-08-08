@@ -1,4 +1,4 @@
-export type PokemonEnergyType = 'grass' | 'fire' | 'water' | 'lightning' | 'psychic' | 'fighting' | 'darkness' | 'metal' | 'colorless' | 'fairy';
+export type PokemonEnergyType = 'grass' | 'fire' | 'water' | 'lightning' | 'psychic' | 'fighting' | 'darkness' | 'metal' | 'colorless' | 'fairy' | 'dragon';
 
 export const POKEMON_ENERGY_TYPES: PokemonEnergyType[] = [
   'grass',
@@ -11,6 +11,7 @@ export const POKEMON_ENERGY_TYPES: PokemonEnergyType[] = [
   'metal',
   'colorless',
   'fairy',
+  'dragon',
 ];
 
 export const POKEMON_ENERGY_LABELS: Record<PokemonEnergyType, string> = {
@@ -24,19 +25,21 @@ export const POKEMON_ENERGY_LABELS: Record<PokemonEnergyType, string> = {
   metal: 'Metal',
   colorless: 'Colorless',
   fairy: 'Fairy',
+  dragon: 'Dragon',
 };
 
 export const POKEMON_ENERGY_COLORS: Record<PokemonEnergyType, string> = {
-  grass: '#38C96B',
-  fire: '#FF573D',
-  water: '#3E9BFF',
-  lightning: '#FFD43B',
-  psychic: '#C66BFF',
-  fighting: '#D07A45',
-  darkness: '#34343B',
-  metal: '#AEB8C3',
-  colorless: '#E4E1D8',
-  fairy: '#FF8FCB',
+  grass: '#25D366',
+  fire: '#FF4D35',
+  water: '#278CFF',
+  lightning: '#FFD329',
+  psychic: '#B85CFF',
+  fighting: '#C96E3B',
+  darkness: '#26262D',
+  metal: '#BFC8D2',
+  colorless: '#ECE9E1',
+  fairy: '#FF83C8',
+  dragon: '#6D5BFF',
 };
 
 export const emptyPokemonEnergy = (): Record<PokemonEnergyType, number> => ({
@@ -50,4 +53,5 @@ export const emptyPokemonEnergy = (): Record<PokemonEnergyType, number> => ({
   metal: 0,
   colorless: 0,
   fairy: 0,
+  dragon: 0,
 });

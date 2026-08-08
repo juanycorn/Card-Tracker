@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Image,
   LayoutAnimation,
   Modal,
   Platform,
@@ -30,6 +31,16 @@ type GameState = { players: Player[]; activePlayer: number; activePhase: number 
 const EMPTY_MANA: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 const MANA_COLORS: ManaColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 const HISTORY_LIMIT = 40;
+
+function contrastTextColor(background: string): string {
+  const clean = background.replace('#', '');
+  if (clean.length !== 6) return '#FFFFFF';
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.62 ? '#111318' : '#FFFFFF';
+}
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -240,7 +251,7 @@ export default function GameScreen() {
 
   const activeName = game.players[game.activePlayer]?.name ?? 'PLAYER 1';
   const activeTheme = getPlayerTheme(game.players[game.activePlayer]?.themeId ?? themeId);
-  const nextButtonTextColor = activeTheme.id.split(':')[1]?.split('-')[0] === 'W' ? '#111318' : '#FFFFFF';
+  const nextButtonTextColor = contrastTextColor(activeTheme.colors.primary);
   const isLastPhase = game.activePhase === rules.phases.length - 1;
   const counterPlayer = game.players.find((player) => player.id === counterPlayerId);
   const counterTheme = getPlayerTheme(counterPlayer?.themeId ?? themeId);
@@ -254,6 +265,7 @@ export default function GameScreen() {
 
   return (
     <LinearGradient colors={activeTheme.gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradientRoot}>
+      {!!activeTheme.backgroundImageUri && <Image pointerEvents="none" source={{ uri: activeTheme.backgroundImageUri }} style={styles.activeBackgroundImage} resizeMode="cover" />}
       <View pointerEvents="none" style={styles.gameWash} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.topBar}>
@@ -384,6 +396,7 @@ function ValueControl({ label, value, onMinus, onPlus, accent }: { label?: strin
 
 const styles = StyleSheet.create({
   gradientRoot: { flex: 1 },
+  activeBackgroundImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
   gameWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(4,6,10,0.48)' },
   safeArea: { flex: 1, paddingHorizontal: 12, paddingBottom: 8 },
   topBar: { height: 68, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },

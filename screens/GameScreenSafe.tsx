@@ -42,11 +42,6 @@ export default function GameScreenSafe() {
     <View style={styles.root}>
       <GameScreen />
 
-      {/*
-        Keep Settings outside GameScreen's header layout. This floating hit target
-        sits above every in-game view, so flex/scroll/animated siblings cannot
-        intercept the press on Android.
-      */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Game settings"
@@ -83,17 +78,13 @@ const styles = StyleSheet.create({
     right: 12,
     width: 50,
     height: 50,
-    borderRadius: 14,
-    backgroundColor: '#151820',
-    borderWidth: 1,
-    borderColor: '#555B6B',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,
     elevation: 30,
   },
-  pressed: { opacity: 0.7, transform: [{ scale: 0.94 }] },
-  settingsText: { color: '#F3F4F7', fontSize: 22, fontWeight: '900' },
+  pressed: { opacity: 0.55, transform: [{ scale: 0.9 }] },
+  settingsText: { color: '#F3F4F7', fontSize: 24, fontWeight: '900' },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.72)',

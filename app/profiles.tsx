@@ -2,34 +2,35 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { COUNTER_KIND } from '../games/counters';
-import { getRulesPack, RULES_PRESETS, type CounterRole, type ManaColor, type RulesPreset } from '../games';
+import { getRulesPack, RULES_PRESETS, type CounterRole, type GameKey, type ManaColor } from '../games';
 import { DEFAULT_PLAYER_THEME_ID, MANA_THEME_COLORS, getCustomThemeId, getManaThemeId } from '../themes';
 import { loadCustomThemes, type CustomTheme } from '../storage/customThemes';
-import { deleteDeckProfile, loadDeckProfiles, upsertDeckProfile, type DeckProfile } from '../storage/deckProfiles';
+import { deleteBattleProfile, loadBattleProfiles, upsertBattleProfile, type BattleProfile } from '../storage/deckProfiles';
 
 const MANA_COLORS: ManaColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
+const GAME_OPTIONS = Array.from(new Map(RULES_PRESETS.map((preset) => [preset.gameKey, { key: preset.gameKey, label: preset.game }])).values());
 
-const makeDraft = (): DeckProfile => ({
+const makeDraft = (): BattleProfile => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   name: '',
   playerName: '',
-  presetId: RULES_PRESETS[0].id,
+  gameKey: 'magic',
   themeId: DEFAULT_PLAYER_THEME_ID,
-  manaColors: [],
+  manaColors: ['C'],
   preferredCounters: [],
   createdAt: Date.now(),
   updatedAt: Date.now(),
 });
 
 export default function ProfilesScreen() {
-  const [profiles, setProfiles] = useState<DeckProfile[]>([]);
+  const [profiles, setProfiles] = useState<BattleProfile[]>([]);
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>([]);
-  const [draft, setDraft] = useState<DeckProfile>(makeDraft());
+  const [draft, setDraft] = useState<BattleProfile>(makeDraft());
   const [editing, setEditing] = useState(false);
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    Promise.all([loadDeckProfiles(), loadCustomThemes()]).then(([profileItems, themeItems]) => {
+    Promise.all([loadBattleProfiles(), loadCustomThemes()]).then(([profileItems, themeItems]) => {
       if (!active) return;
       setProfiles(profileItems);
       setCustomThemes(themeItems);
@@ -37,18 +38,21 @@ export default function ProfilesScreen() {
     return () => { active = false; };
   }, []));
 
-  const preset = useMemo<RulesPreset>(() => RULES_PRESETS.find((item) => item.id === draft.presetId) ?? RULES_PRESETS[0], [draft.presetId]);
-  const rules = getRulesPack(preset.game);
+  const gamePreset = useMemo(() => RULES_PRESETS.find((item) => item.gameKey === draft.gameKey) ?? RULES_PRESETS[0], [draft.gameKey]);
+  const rules = getRulesPack(gamePreset.game);
   const availableCounters = rules.counterGroups.flatMap((group) => group.roles);
   const attachedTheme = customThemes.find((theme) => getCustomThemeId(theme) === draft.themeId);
   const selectedAccent = attachedTheme?.colors.accent ?? (draft.manaColors.length ? MANA_THEME_COLORS[draft.manaColors[draft.manaColors.length - 1]] : MANA_THEME_COLORS.C);
 
-  const choosePreset = (item: RulesPreset) => {
-    const nextRules = getRulesPack(item.game);
+  const chooseGame = (gameKey: GameKey) => {
+    const nextPreset = RULES_PRESETS.find((item) => item.gameKey === gameKey) ?? RULES_PRESETS[0];
+    const nextRules = getRulesPack(nextPreset.game);
     setDraft((current) => ({
       ...current,
-      presetId: item.id,
-      manaColors: nextRules.supportsMana ? current.manaColors : [],
+      gameKey,
+      presetId: undefined,
+      manaColors: nextRules.supportsMana ? (current.manaColors.length ? current.manaColors : ['C']) : [],
+      themeId: current.themeId.startsWith('custom:') ? current.themeId : getManaThemeId(nextRules.supportsMana ? current.manaColors : ['C']),
       preferredCounters: current.preferredCounters.filter((role) => nextRules.counterGroups.some((group) => group.roles.includes(role))),
     }));
   };
@@ -77,20 +81,20 @@ export default function ProfilesScreen() {
   const saveProfile = async () => {
     const name = draft.name.trim();
     if (!name) {
-      Alert.alert('Deck name required', 'Give this deck profile a name first.');
+      Alert.alert('Build name required', 'Give this Battle Profile a name first.');
       return;
     }
     const themeId = draft.themeId.startsWith('custom:') ? draft.themeId : getManaThemeId(draft.manaColors);
-    const saved = { ...draft, name, themeId, playerName: draft.playerName.trim(), updatedAt: Date.now() };
-    setProfiles(await upsertDeckProfile(saved));
+    const saved = { ...draft, name, themeId, presetId: undefined, playerName: draft.playerName.trim(), updatedAt: Date.now() };
+    setProfiles(await upsertBattleProfile(saved));
     setDraft(makeDraft());
     setEditing(false);
   };
 
-  const editProfile = (profile: DeckProfile) => { setDraft({ ...profile, manaColors: profile.manaColors.length ? profile.manaColors : ['C'] }); setEditing(true); };
-  const removeProfile = (profile: DeckProfile) => Alert.alert('Delete deck profile?', profile.name, [
+  const editProfile = (profile: BattleProfile) => { setDraft({ ...profile, manaColors: profile.manaColors.length ? profile.manaColors : (profile.gameKey === 'magic' ? ['C'] : []) }); setEditing(true); };
+  const removeProfile = (profile: BattleProfile) => Alert.alert('Delete Battle Profile?', profile.name, [
     { text: 'Cancel', style: 'cancel' },
-    { text: 'Delete', style: 'destructive', onPress: async () => setProfiles(await deleteDeckProfile(profile.id)) },
+    { text: 'Delete', style: 'destructive', onPress: async () => setProfiles(await deleteBattleProfile(profile.id)) },
   ]);
   const newProfile = () => { setDraft(makeDraft()); setEditing(true); };
 
@@ -98,18 +102,18 @@ export default function ProfilesScreen() {
     return <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}><Text style={styles.backText}>‹ HOME</Text></Pressable>
-        <View><Text style={styles.title}>Deck Profiles</Text><Text style={styles.subtitle}>Save deck defaults and attach a player theme.</Text></View>
+        <View><Text style={styles.title}>Battle Profiles</Text><Text style={styles.subtitle}>Save a build once and use it across every mode for that game.</Text></View>
         <Pressable onPress={newProfile} style={styles.newButton}><Text style={styles.newButtonText}>＋ NEW</Text></Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.profileList}>
-        {profiles.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No deck profiles yet</Text><Text style={styles.emptyBody}>Profiles remember rules, mana colors, counters, and an optional custom theme.</Text><Pressable onPress={newProfile} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE PROFILE</Text></Pressable></View>
+        {profiles.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No Battle Profiles yet</Text><Text style={styles.emptyBody}>A Battle Profile bundles your build, game, colors, counters, and theme.</Text><Pressable onPress={newProfile} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE BATTLE PROFILE</Text></Pressable></View>
         : profiles.map((profile) => {
-          const itemPreset = RULES_PRESETS.find((item) => item.id === profile.presetId) ?? RULES_PRESETS[0];
+          const game = GAME_OPTIONS.find((item) => item.key === profile.gameKey);
           const theme = customThemes.find((item) => getCustomThemeId(item) === profile.themeId);
           const accent = theme?.colors.accent ?? (profile.manaColors.length ? MANA_THEME_COLORS[profile.manaColors[profile.manaColors.length - 1]] : MANA_THEME_COLORS.C);
           return <View key={profile.id} style={styles.profileCard}>
             {!!theme?.assets.previewImage.uri && <Image source={{ uri: theme.assets.previewImage.uri }} style={styles.profileThumb} />}
-            <View style={styles.profileInfo}><Text style={styles.profileName}>{profile.name}</Text><Text style={[styles.profileMeta, { color: accent }]}>{itemPreset.game} · {itemPreset.mode}</Text><Text style={styles.profileDetails}>{profile.preferredCounters.length} counter suggestions{profile.manaColors.length ? ` · ${profile.manaColors.join('/')} mana` : ''}{theme ? ` · ${theme.name}` : ' · Mana Default'}</Text></View>
+            <View style={styles.profileInfo}><Text style={styles.profileName}>{profile.name}</Text><Text style={[styles.profileMeta, { color: accent }]}>{game?.label ?? profile.gameKey.toUpperCase()}</Text><Text style={styles.profileDetails}>{profile.preferredCounters.length} counter suggestions{profile.manaColors.length ? ` · ${profile.manaColors.join('/')} mana` : ''}{theme ? ` · ${theme.name}` : ' · Default theme'}</Text></View>
             <Pressable onPress={() => editProfile(profile)} style={styles.smallButton}><Text style={styles.smallButtonText}>EDIT</Text></Pressable>
             <Pressable onPress={() => removeProfile(profile)} style={styles.deleteButton}><Text style={styles.deleteText}>×</Text></Pressable>
           </View>;
@@ -121,36 +125,36 @@ export default function ProfilesScreen() {
   return <SafeAreaView style={styles.safeArea}>
     <View style={styles.header}>
       <Pressable onPress={() => setEditing(false)} style={styles.backButton}><Text style={styles.backText}>‹ PROFILES</Text></Pressable>
-      <View><Text style={styles.title}>{profiles.some((item) => item.id === draft.id) ? 'Edit Profile' : 'New Deck Profile'}</Text><Text style={styles.subtitle}>This profile carries its selected theme into games.</Text></View>
+      <View><Text style={styles.title}>{profiles.some((item) => item.id === draft.id) ? 'Edit Battle Profile' : 'New Battle Profile'}</Text><Text style={styles.subtitle}>This build can be selected in any mode for its game.</Text></View>
       <View style={{ width: 92 }} />
     </View>
 
     <ScrollView contentContainerStyle={styles.editor}>
-      <Text style={styles.sectionLabel}>PROFILE</Text>
+      <Text style={styles.sectionLabel}>BUILD</Text>
       <View style={styles.inputRow}>
-        <TextInput value={draft.name} onChangeText={(name) => setDraft((current) => ({ ...current, name }))} placeholder="Deck name" placeholderTextColor="#676D7D" style={styles.input} />
+        <TextInput value={draft.name} onChangeText={(name) => setDraft((current) => ({ ...current, name }))} placeholder={draft.gameKey === 'dnd' ? 'Character / build name' : 'Deck / build name'} placeholderTextColor="#676D7D" style={styles.input} />
         <TextInput value={draft.playerName} onChangeText={(playerName) => setDraft((current) => ({ ...current, playerName }))} placeholder="Player name (optional)" placeholderTextColor="#676D7D" style={styles.input} />
       </View>
 
-      <Text style={styles.sectionLabel}>RULES PRESET</Text>
-      <View style={styles.grid}>{RULES_PRESETS.map((item) => <Pressable key={item.id} onPress={() => choosePreset(item)} style={[styles.optionCard, item.id === draft.presetId && [styles.selected, { borderColor: selectedAccent }]]}><Text style={[styles.optionEyebrow, item.id === draft.presetId && { color: selectedAccent }]}>{item.game}</Text><Text style={styles.optionTitle}>{item.mode}</Text><Text style={styles.optionMeta}>{item.players} players · {item.startingValue} {item.metric}</Text></Pressable>)}</View>
+      <Text style={styles.sectionLabel}>GAME</Text>
+      <Text style={styles.helpText}>Battle Profiles are game-wide. Magic builds work in Commander, Standard, Brawl, and future Magic modes.</Text>
+      <View style={styles.grid}>{GAME_OPTIONS.map((item) => <Pressable key={item.key} onPress={() => chooseGame(item.key)} style={[styles.optionCard, item.key === draft.gameKey && [styles.selected, { borderColor: selectedAccent }]]}><Text style={[styles.optionEyebrow, item.key === draft.gameKey && { color: selectedAccent }]}>GAME</Text><Text style={styles.optionTitle}>{item.label}</Text></Pressable>)}</View>
 
-      {rules.supportsMana && <><Text style={styles.sectionLabel}>MANA COLORS</Text><Text style={styles.helpText}>Mana colors are still gameplay data and become the fallback visual theme.</Text><View style={styles.chipRow}>{MANA_COLORS.map((color) => <Pressable key={color} onPress={() => toggleMana(color)} style={[styles.chip, draft.manaColors.includes(color) && styles.selected, draft.manaColors.includes(color) && { borderColor: MANA_THEME_COLORS[color] }]}><Text style={styles.chipText}>{color}</Text></Pressable>)}</View></>}
+      {rules.supportsMana && <><Text style={styles.sectionLabel}>MANA COLORS</Text><Text style={styles.helpText}>These are gameplay data and the fallback visual theme when no custom theme is attached.</Text><View style={styles.chipRow}>{MANA_COLORS.map((color) => <Pressable key={color} onPress={() => toggleMana(color)} style={[styles.chip, draft.manaColors.includes(color) && styles.selected, draft.manaColors.includes(color) && { borderColor: MANA_THEME_COLORS[color] }]}><Text style={styles.chipText}>{color}</Text></Pressable>)}</View></>}
 
-      <Text style={styles.sectionLabel}>PLAYER THEME</Text>
-      <Text style={styles.helpText}>Attach a custom theme to this deck. Mana Default is used when no custom theme is attached.</Text>
+      <Text style={styles.sectionLabel}>THEME</Text>
+      <Text style={styles.helpText}>Attach a custom theme to this Battle Profile. The default game/mana theme is used otherwise.</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.themeRow}>
-        <Pressable onPress={() => chooseTheme()} style={[styles.themeCard, !draft.themeId.startsWith('custom:') && styles.themeSelected]}><View style={styles.manaDefault}><Text style={styles.themeName}>MANA DEFAULT</Text><Text style={styles.themeMeta}>{draft.manaColors.join(' / ') || 'Colorless'}</Text></View></Pressable>
+        <Pressable onPress={() => chooseTheme()} style={[styles.themeCard, !draft.themeId.startsWith('custom:') && styles.themeSelected]}><View style={styles.manaDefault}><Text style={styles.themeName}>DEFAULT</Text><Text style={styles.themeMeta}>{rules.supportsMana ? (draft.manaColors.join(' / ') || 'Colorless') : gamePreset.game}</Text></View></Pressable>
         {customThemes.map((theme) => <Pressable key={theme.id} onPress={() => chooseTheme(theme)} style={[styles.themeCard, draft.themeId === getCustomThemeId(theme) && { borderColor: theme.colors.accent, borderWidth: 3 }]}><View style={[styles.themePreview, { backgroundColor: theme.colors.background }]}>{!!theme.assets.previewImage.uri && <Image source={{ uri: theme.assets.previewImage.uri }} style={StyleSheet.absoluteFillObject} />}<View style={styles.themeWash} /><Text style={[styles.themeName, { color: theme.colors.text }]}>{theme.name}</Text><Text style={[styles.themeMeta, { color: theme.colors.mutedText }]}>{theme.description || 'Custom theme'}</Text></View></Pressable>)}
       </ScrollView>
-      {customThemes.length === 0 && <Text style={styles.helpText}>No custom themes yet. Create one from the home screen first.</Text>}
 
       <Text style={styles.sectionLabel}>COUNTER SUGGESTIONS</Text>
-      <Text style={styles.helpText}>These do not get added automatically. They will be prioritized in this player's + Counter menu.</Text>
+      <Text style={styles.helpText}>These do not get added automatically. They are prioritized in this player's + Counter menu.</Text>
       <View style={styles.grid}>{availableCounters.map((role) => <Pressable key={role} onPress={() => toggleCounter(role)} style={[styles.counterOption, draft.preferredCounters.includes(role) && [styles.selected, { borderColor: selectedAccent }]]}><Text style={styles.counterName}>{role.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</Text><Text style={styles.optionMeta}>{COUNTER_KIND[role] === 'stats' ? 'Two values' : COUNTER_KIND[role] === 'toggle' ? 'On / off' : 'Number'}</Text></Pressable>)}</View>
     </ScrollView>
 
-    <View style={styles.footer}><Pressable onPress={() => setEditing(false)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={saveProfile} style={[styles.saveButton, { backgroundColor: selectedAccent }]}><Text style={styles.saveText}>SAVE PROFILE</Text></Pressable></View>
+    <View style={styles.footer}><Pressable onPress={() => setEditing(false)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={saveProfile} style={[styles.saveButton, { backgroundColor: selectedAccent }]}><Text style={styles.saveText}>SAVE BATTLE PROFILE</Text></Pressable></View>
   </SafeAreaView>;
 }
 

@@ -73,9 +73,9 @@ export default function HomeScreen() {
               <Text style={styles.secondaryButtonText}>DECK PROFILES</Text>
               <Text style={styles.availableNow}>CREATE · SAVE · PLAY</Text>
             </Pressable>
-            <Pressable style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
-              <Text style={styles.secondaryButtonText}>THEMES</Text>
-              <Text style={styles.comingSoon}>COMING SOON</Text>
+            <Pressable onPress={() => router.push('/themes')} style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}>
+              <Text style={styles.secondaryButtonText}>THEME CREATOR</Text>
+              <Text style={styles.availableNow}>CREATE · SAVE · EDIT</Text>
             </Pressable>
           </View>
         </View>
@@ -108,7 +108,6 @@ const styles = StyleSheet.create({
   secondaryButton: { flex: 1, minHeight: 68, borderRadius: 18, borderWidth: 1, borderColor: '#2B2F3A', backgroundColor: '#11141B', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
   secondaryButtonText: { color: '#E8E9EF', fontSize: 14, fontWeight: '800', letterSpacing: 0.8, textAlign: 'center' },
   availableNow: { color: '#57C7B6', fontSize: 8, fontWeight: '800', letterSpacing: 1, marginTop: 5, textAlign: 'center' },
-  comingSoon: { color: '#676D7D', fontSize: 8, fontWeight: '800', letterSpacing: 1.2, marginTop: 5 },
   buttonPressed: { opacity: 0.78, transform: [{ scale: 0.985 }] },
   version: { alignSelf: 'center', color: '#4E5360', fontSize: 9, fontWeight: '700', letterSpacing: 1.6, textAlign: 'center' },
 });

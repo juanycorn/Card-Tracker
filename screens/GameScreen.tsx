@@ -240,6 +240,7 @@ export default function GameScreen() {
 
   const activeName = game.players[game.activePlayer]?.name ?? 'PLAYER 1';
   const activeTheme = getPlayerTheme(game.players[game.activePlayer]?.themeId ?? themeId);
+  const nextButtonTextColor = activeTheme.id.split(':')[1]?.split('-')[0] === 'W' ? '#111318' : '#FFFFFF';
   const isLastPhase = game.activePhase === rules.phases.length - 1;
   const counterPlayer = game.players.find((player) => player.id === counterPlayerId);
   const counterTheme = getPlayerTheme(counterPlayer?.themeId ?? themeId);
@@ -292,7 +293,7 @@ export default function GameScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.phaseTrack}>
             {rules.phases.map((phase, index) => <Pressable key={phase} onPress={() => selectPhase(index)} style={[styles.phaseChip, index === game.activePhase && [styles.activePhaseChip, { borderColor: activeTheme.colors.accent, backgroundColor: activeTheme.colors.surface }]]}><Text style={[styles.phaseText, index === game.activePhase && styles.activePhaseText]}>{phase}</Text></Pressable>)}
           </ScrollView>
-          <Pressable onPress={advance} style={[styles.nextButton, { backgroundColor: activeTheme.colors.primary }]}><Text style={styles.nextButtonText}>{isLastPhase ? 'END TURN' : 'NEXT PHASE'}</Text><Text style={styles.nextButtonHint}>{isLastPhase ? `PASS TO ${game.players[(game.activePlayer + 1) % game.players.length].name}` : rules.phases[game.activePhase + 1]}</Text></Pressable>
+          <Pressable onPress={advance} style={[styles.nextButton, { backgroundColor: activeTheme.colors.primary }]}><Text style={[styles.nextButtonText, { color: nextButtonTextColor }]}>{isLastPhase ? 'END TURN' : 'NEXT PHASE'}</Text><Text style={[styles.nextButtonHint, { color: nextButtonTextColor }]}>{isLastPhase ? `PASS TO ${game.players[(game.activePlayer + 1) % game.players.length].name}` : rules.phases[game.activePhase + 1]}</Text></Pressable>
         </View>
 
         <Modal transparent visible={settingsOpen} animationType="fade" onRequestClose={() => setSettingsOpen(false)}>
@@ -436,8 +437,8 @@ const styles = StyleSheet.create({
   phaseText: { color: '#A8AEB9', fontSize: 8, fontWeight: '900' },
   activePhaseText: { color: '#FFFFFF' },
   nextButton: { width: 170, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  nextButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
-  nextButtonHint: { color: '#FFFFFF', fontSize: 7, fontWeight: '800' },
+  nextButtonText: { fontSize: 13, fontWeight: '900' },
+  nextButtonHint: { fontSize: 7, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', alignItems: 'center', justifyContent: 'center', padding: 18 },
   modalCard: { width: '100%', maxWidth: 620, maxHeight: '92%', borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18 },
   nameCard: { width: '100%', maxWidth: 430, borderRadius: 22, backgroundColor: '#12151D', borderWidth: 1, borderColor: '#303544', padding: 18 },

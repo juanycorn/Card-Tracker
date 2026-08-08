@@ -1,10 +1,13 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { ThemeAnimation } from '../themes';
-import { createCustomThemeDraft, deleteCustomTheme, loadCustomThemes, upsertCustomTheme, type CustomTheme } from '../storage/customThemes';
+import { createCustomThemeDraft, deleteCustomTheme, loadCustomThemes, upsertCustomTheme, type CustomTheme, type ThemeAssetSlot } from '../storage/customThemes';
+import { deleteThemeImage, pickThemeImage } from '../utils/themeImageAssets';
 
 const ANIMATIONS: ThemeAnimation[] = ['none', 'pulse', 'shake', 'spring', 'glow'];
+
+type ImageSlot = 'backgroundImage' | 'previewImage';
 
 export default function ThemesScreen() {
   const [themes, setThemes] = useState<CustomTheme[]>([]);
@@ -33,7 +36,15 @@ export default function ThemesScreen() {
 
   const removeTheme = (theme: CustomTheme) => Alert.alert('Delete theme?', theme.name, [
     { text: 'Cancel', style: 'cancel' },
-    { text: 'Delete', style: 'destructive', onPress: async () => setThemes(await deleteCustomTheme(theme.id)) },
+    {
+      text: 'Delete',
+      style: 'destructive',
+      onPress: async () => {
+        deleteThemeImage(theme.assets.backgroundImage);
+        deleteThemeImage(theme.assets.previewImage);
+        setThemes(await deleteCustomTheme(theme.id));
+      },
+    },
   ]);
 
   const setColor = (key: keyof CustomTheme['colors'], value: string) => setDraft((current) => ({
@@ -46,6 +57,26 @@ export default function ThemesScreen() {
     animations: { ...current.animations, [key]: value },
   }));
 
+  const importImage = async (slot: ImageSlot) => {
+    try {
+      const imported = await pickThemeImage(draft.id, slot);
+      if (!imported) return;
+      setDraft((current) => {
+        deleteThemeImage(current.assets[slot]);
+        return { ...current, assets: { ...current.assets, [slot]: imported } };
+      });
+    } catch {
+      Alert.alert('Could not import image', 'CardSync could not copy that image into theme storage. Try another image.');
+    }
+  };
+
+  const removeImage = (slot: ImageSlot) => {
+    setDraft((current) => {
+      deleteThemeImage(current.assets[slot]);
+      return { ...current, assets: { ...current.assets, [slot]: {} } };
+    });
+  };
+
   if (!editing) {
     return <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -54,9 +85,11 @@ export default function ThemesScreen() {
         <Pressable onPress={newTheme} style={styles.newButton}><Text style={styles.newButtonText}>＋ NEW</Text></Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.list}>
-        {themes.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No custom themes yet</Text><Text style={styles.emptyBody}>Create a theme now. Image and audio importing will plug into the asset slots next.</Text><Pressable onPress={newTheme} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE THEME</Text></Pressable></View>
+        {themes.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No custom themes yet</Text><Text style={styles.emptyBody}>Create a theme with custom colors and images. Audio importing comes next.</Text><Pressable onPress={newTheme} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE THEME</Text></Pressable></View>
         : themes.map((theme) => <View key={theme.id} style={[styles.themeCard, { borderColor: theme.colors.accent, backgroundColor: theme.colors.surface }]}>
-            <View style={[styles.previewBlock, { backgroundColor: theme.colors.primary }]} />
+            {theme.assets.previewImage.uri
+              ? <Image source={{ uri: theme.assets.previewImage.uri }} style={styles.themeThumbnail} />
+              : <View style={[styles.previewBlock, { backgroundColor: theme.colors.primary }]} />}
             <View style={styles.themeInfo}><Text style={[styles.themeName, { color: theme.colors.text }]}>{theme.name}</Text><Text style={[styles.themeDescription, { color: theme.colors.mutedText }]}>{theme.description || 'Custom CardSync theme'}</Text></View>
             <Pressable onPress={() => editTheme(theme)} style={styles.smallButton}><Text style={styles.smallButtonText}>EDIT</Text></Pressable>
             <Pressable onPress={() => removeTheme(theme)} style={styles.deleteButton}><Text style={styles.deleteText}>×</Text></Pressable>
@@ -74,6 +107,8 @@ export default function ThemesScreen() {
 
     <ScrollView contentContainerStyle={styles.editor}>
       <View style={[styles.livePreview, { backgroundColor: draft.colors.surface, borderColor: draft.colors.accent }]}>
+        {draft.assets.backgroundImage.uri && <Image source={{ uri: draft.assets.backgroundImage.uri }} style={styles.previewBackgroundImage} />}
+        {draft.assets.backgroundImage.uri && <View style={styles.previewImageWash} />}
         <View style={[styles.previewAccent, { backgroundColor: draft.colors.primary }]} />
         <Text style={[styles.previewTitle, { color: draft.colors.text }]}>{draft.name || 'Theme Preview'}</Text>
         <Text style={[styles.previewMeta, { color: draft.colors.mutedText }]}>Player turn · Counter added · Life change</Text>
@@ -92,21 +127,40 @@ export default function ThemesScreen() {
       <Text style={styles.sectionLabel}>ANIMATIONS</Text>
       {(Object.keys(draft.animations) as (keyof CustomTheme['animations'])[]).map((key) => <View key={key} style={styles.animationRow}><Text style={styles.animationLabel}>{key.replace(/([A-Z])/g, ' $1').toUpperCase()}</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.animationChoices}>{ANIMATIONS.map((animation) => <Pressable key={animation} onPress={() => setAnimation(key, animation)} style={[styles.animationChip, draft.animations[key] === animation && { borderColor: draft.colors.accent, backgroundColor: draft.colors.surface }]}><Text style={styles.animationChipText}>{animation.toUpperCase()}</Text></Pressable>)}</ScrollView></View>)}
 
-      <Text style={styles.sectionLabel}>ASSETS</Text>
-      <Text style={styles.helpText}>These slots are saved with the theme now. File picking and persistent app storage are the next implementation step.</Text>
+      <Text style={styles.sectionLabel}>IMAGES</Text>
+      <Text style={styles.helpText}>Images are copied into CardSync's private app storage, so moving or deleting the original photo will not break the theme.</Text>
+      <View style={styles.assetGrid}>
+        <ImageAssetCard label="Background Image" asset={draft.assets.backgroundImage} onImport={() => importImage('backgroundImage')} onRemove={() => removeImage('backgroundImage')} />
+        <ImageAssetCard label="Preview Image" asset={draft.assets.previewImage} onImport={() => importImage('previewImage')} onRemove={() => removeImage('previewImage')} />
+      </View>
+
+      <Text style={styles.sectionLabel}>AUDIO</Text>
+      <Text style={styles.helpText}>Audio file importing is the next asset step.</Text>
       <View style={styles.assetGrid}>{[
-        ['Background Image', draft.assets.backgroundImage],
-        ['Preview Image', draft.assets.previewImage],
         ['Damage Sound', draft.assets.damageSound],
         ['Heal Sound', draft.assets.healSound],
         ['Counter Sound', draft.assets.counterSound],
         ['Turn Sound', draft.assets.turnSound],
         ['Music', draft.assets.music],
-      ].map(([label, asset]) => <View key={label as string} style={styles.assetCard}><Text style={styles.assetTitle}>{label as string}</Text><Text style={styles.assetMeta}>{(asset as CustomTheme['assets']['music']).name || 'Not selected'}</Text><View style={styles.assetPlaceholder}><Text style={styles.assetPlaceholderText}>IMPORT NEXT</Text></View></View>)}</View>
+      ].map(([label, asset]) => <View key={label as string} style={styles.assetCard}><Text style={styles.assetTitle}>{label as string}</Text><Text style={styles.assetMeta}>{(asset as ThemeAssetSlot).name || 'Not selected'}</Text><View style={styles.assetPlaceholder}><Text style={styles.assetPlaceholderText}>IMPORT NEXT</Text></View></View>)}</View>
     </ScrollView>
 
     <View style={styles.footer}><Pressable onPress={() => setEditing(false)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={saveTheme} style={[styles.saveButton, { backgroundColor: draft.colors.primary }]}><Text style={styles.saveText}>SAVE THEME</Text></Pressable></View>
   </SafeAreaView>;
+}
+
+function ImageAssetCard({ label, asset, onImport, onRemove }: { label: string; asset: ThemeAssetSlot; onImport: () => void; onRemove: () => void }) {
+  return <View style={styles.imageAssetCard}>
+    <Text style={styles.assetTitle}>{label}</Text>
+    <Text style={styles.assetMeta} numberOfLines={1}>{asset.name || 'Not selected'}</Text>
+    {asset.uri
+      ? <Image source={{ uri: asset.uri }} style={styles.assetImagePreview} />
+      : <View style={styles.assetImageEmpty}><Text style={styles.assetPlaceholderText}>NO IMAGE</Text></View>}
+    <View style={styles.assetActions}>
+      <Pressable onPress={onImport} style={styles.importButton}><Text style={styles.importButtonText}>{asset.uri ? 'REPLACE' : 'CHOOSE IMAGE'}</Text></Pressable>
+      {asset.uri && <Pressable onPress={onRemove} style={styles.removeButton}><Text style={styles.removeButtonText}>REMOVE</Text></Pressable>}
+    </View>
+  </View>;
 }
 
 const styles = StyleSheet.create({
@@ -126,6 +180,7 @@ const styles = StyleSheet.create({
   primaryText: { color: '#111318', fontWeight: '900' },
   themeCard: { width: '100%', maxWidth: 720, alignSelf: 'center', minHeight: 94, borderRadius: 18, borderWidth: 1, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   previewBlock: { width: 44, height: 44, borderRadius: 12 },
+  themeThumbnail: { width: 52, height: 52, borderRadius: 12, backgroundColor: '#171A22' },
   themeInfo: { flex: 1 },
   themeName: { fontSize: 18, fontWeight: '900' },
   themeDescription: { fontSize: 10, marginTop: 4 },
@@ -135,6 +190,8 @@ const styles = StyleSheet.create({
   deleteText: { color: '#FF7A86', fontSize: 20, fontWeight: '900' },
   editor: { paddingHorizontal: 24, paddingBottom: 120 },
   livePreview: { minHeight: 190, borderRadius: 20, borderWidth: 2, padding: 18, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  previewBackgroundImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  previewImageWash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.42)' },
   previewAccent: { width: '48%', height: 8, borderRadius: 4, marginBottom: 12 },
   previewTitle: { fontSize: 22, fontWeight: '900' },
   previewMeta: { fontSize: 10, marginTop: 4 },
@@ -154,9 +211,17 @@ const styles = StyleSheet.create({
   animationChip: { borderRadius: 11, borderWidth: 1, borderColor: '#303544', backgroundColor: '#151820', paddingVertical: 9, paddingHorizontal: 12 },
   animationChipText: { color: '#FFFFFF', fontSize: 9, fontWeight: '900' },
   assetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  imageAssetCard: { width: '48%', flexGrow: 1, minHeight: 210, borderRadius: 14, borderWidth: 1, borderColor: '#2B303C', backgroundColor: '#11141B', padding: 12 },
   assetCard: { width: '31%', flexGrow: 1, minHeight: 108, borderRadius: 14, borderWidth: 1, borderColor: '#2B303C', backgroundColor: '#11141B', padding: 12 },
   assetTitle: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
   assetMeta: { color: '#7E8494', fontSize: 8, marginTop: 4 },
+  assetImagePreview: { width: '100%', height: 112, borderRadius: 10, marginTop: 10, backgroundColor: '#171A22' },
+  assetImageEmpty: { width: '100%', height: 112, borderRadius: 10, marginTop: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: '#454B58', alignItems: 'center', justifyContent: 'center' },
+  assetActions: { flexDirection: 'row', gap: 7, marginTop: 9 },
+  importButton: { flex: 1, minHeight: 38, borderRadius: 10, backgroundColor: '#E7E8EB', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  importButtonText: { color: '#111318', fontSize: 8, fontWeight: '900' },
+  removeButton: { minHeight: 38, borderRadius: 10, backgroundColor: '#3A1B22', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  removeButtonText: { color: '#FF9BA5', fontSize: 8, fontWeight: '900' },
   assetPlaceholder: { marginTop: 10, minHeight: 36, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: '#454B58', alignItems: 'center', justifyContent: 'center' },
   assetPlaceholderText: { color: '#747B89', fontSize: 8, fontWeight: '900' },
   footer: { height: 78, borderTopWidth: 1, borderTopColor: '#252A35', backgroundColor: '#0D1016', flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10, paddingHorizontal: 24 },

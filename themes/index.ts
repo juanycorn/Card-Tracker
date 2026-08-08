@@ -1,5 +1,6 @@
 import { BASE_COUNTER_LABELS } from '../games/counters';
 import type { CounterRole, ManaColor } from '../games';
+import { POKEMON_ENERGY_COLORS, POKEMON_ENERGY_LABELS, POKEMON_ENERGY_TYPES, type PokemonEnergyType } from '../games/pokemonEnergy';
 
 export type ThemeAnimation = 'none' | 'pulse' | 'shake' | 'spring' | 'glow';
 
@@ -84,6 +85,7 @@ export const MANA_COLOR_NAMES: Record<ManaColor, string> = {
 };
 
 const MANA_ORDER: ManaColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
+const POKEMON_TYPE_ORDER: PokemonEnergyType[] = [...POKEMON_ENERGY_TYPES];
 
 const DEFAULT_THEME_VALUES = {
   colors: {
@@ -127,6 +129,12 @@ function normalizeManaColors(colors?: readonly ManaColor[]): ManaColor[] {
   return MANA_ORDER.filter((color) => unique.includes(color));
 }
 
+function normalizePokemonTypes(types?: readonly PokemonEnergyType[]): PokemonEnergyType[] {
+  const unique = [...new Set(types ?? [])];
+  if (!unique.length) return ['colorless'];
+  return POKEMON_TYPE_ORDER.filter((type) => unique.includes(type));
+}
+
 export function getManaThemeId(colors?: readonly ManaColor[]): string {
   return `mana:${normalizeManaColors(colors).join('-')}`;
 }
@@ -156,6 +164,44 @@ export function getManaTheme(colors?: readonly ManaColor[]): PlayerTheme {
       border: manaColors[0] === 'B' ? '#4A4A52' : manaColors[0] === 'W' ? '#D4D4D0' : shade(accent, 0.78),
       text: '#FFFFFF',
       mutedText: '#C0C5CE',
+    },
+    icons: DEFAULT_THEME_VALUES.icons,
+    sounds: DEFAULT_THEME_VALUES.sounds,
+    animations: DEFAULT_THEME_VALUES.animations,
+    typography: DEFAULT_THEME_VALUES.typography,
+  };
+}
+
+export function getPokemonThemeId(types?: readonly PokemonEnergyType[]): string {
+  return `pokemon:${normalizePokemonTypes(types).join('-')}`;
+}
+
+export function getPokemonTheme(types?: readonly PokemonEnergyType[]): PlayerTheme {
+  const pokemonTypes = normalizePokemonTypes(types);
+  const swatches = pokemonTypes.map((type) => POKEMON_ENERGY_COLORS[type]);
+  const first = pokemonTypes[0];
+  const gradientColors = (swatches.length === 1
+    ? [shade(swatches[0], first === 'darkness' ? 0.5 : first === 'colorless' || first === 'metal' ? 0.72 : 0.56), swatches[0]]
+    : swatches) as [string, string, ...string[]];
+  const primary = swatches[0];
+  const accent = swatches[swatches.length - 1];
+  const lightPrimary = first === 'colorless' || first === 'metal' || first === 'lightning';
+
+  return {
+    id: getPokemonThemeId(pokemonTypes),
+    name: pokemonTypes.map((type) => POKEMON_ENERGY_LABELS[type]).join(' / '),
+    example: pokemonTypes.join(' · '),
+    labels: BASE_COUNTER_LABELS,
+    gradientColors,
+    colors: {
+      ...DEFAULT_THEME_VALUES.colors,
+      primary,
+      accent,
+      background: first === 'darkness' ? '#08080D' : lightPrimary ? '#25272A' : shade(primary, 0.15),
+      surface: first === 'darkness' ? '#15151B' : lightPrimary ? '#303338' : shade(primary, 0.23),
+      border: lightPrimary ? '#D5D9DE' : shade(accent, 0.78),
+      text: '#FFFFFF',
+      mutedText: '#D0D4DC',
     },
     icons: DEFAULT_THEME_VALUES.icons,
     sounds: DEFAULT_THEME_VALUES.sounds,
@@ -206,6 +252,10 @@ export const THEMES_BY_ID: Record<string, PlayerTheme> = { [DEFAULT_PLAYER_THEME
 
 export function getThemePack(id?: string): PlayerTheme {
   if (id?.startsWith('custom:')) return decodeCustomTheme(id) ?? getManaTheme(['C']);
+  if (id?.startsWith('pokemon:')) {
+    const types = id.slice(8).split('-').filter((type): type is PokemonEnergyType => POKEMON_TYPE_ORDER.includes(type as PokemonEnergyType));
+    return getPokemonTheme(types);
+  }
   if (id?.startsWith('mana:')) {
     const colors = id.slice(5).split('-').filter((color): color is ManaColor => MANA_ORDER.includes(color as ManaColor));
     return getManaTheme(colors);

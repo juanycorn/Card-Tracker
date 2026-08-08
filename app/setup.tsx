@@ -34,7 +34,7 @@ export default function SetupScreen() {
           {RULES_PRESETS.map((preset) => {
             const active = preset.id === selected.id;
             return <Pressable key={preset.id} onPress={() => choosePreset(preset)} style={[styles.presetCard, active && styles.activeCard]}>
-              <Text style={styles.gameLabel}>{preset.game}</Text>
+              <Text style={[styles.gameLabel, active && styles.activeLabel]}>{preset.game}</Text>
               <Text style={styles.modeLabel}>{preset.mode}</Text>
               <Text style={styles.presetDetails}>{preset.players} players · {preset.startingValue} {preset.metric}</Text>
             </Pressable>;
@@ -71,8 +71,9 @@ const styles = StyleSheet.create({
   sectionLabel: { color: '#6F7585', fontSize: 9, fontWeight: '900', letterSpacing: 1.7, marginBottom: 8, marginTop: 4 },
   presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   presetCard: { width: '32%', minHeight: 94, flexGrow: 1, borderRadius: 16, borderWidth: 1, borderColor: '#282C37', backgroundColor: '#11141B', padding: 14, justifyContent: 'center' },
-  activeCard: { borderColor: '#8F7CFF', borderWidth: 3, backgroundColor: '#181528' },
-  gameLabel: { color: '#8F7CFF', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  activeCard: { borderColor: '#D7DCE4', borderWidth: 3, backgroundColor: '#1A1E26' },
+  gameLabel: { color: '#A8AEB9', fontSize: 9, fontWeight: '900', letterSpacing: 1.4 },
+  activeLabel: { color: '#FFFFFF' },
   modeLabel: { color: '#FFFFFF', fontSize: 16, fontWeight: '900', marginTop: 4 },
   presetDetails: { color: '#8E94A6', fontSize: 10, fontWeight: '700', marginTop: 6 },
   bottomBar: { minHeight: 88, borderTopWidth: 1, borderTopColor: '#222630', backgroundColor: '#0D1016', paddingHorizontal: 28, flexDirection: 'row', alignItems: 'center', gap: 24 },
@@ -82,8 +83,8 @@ const styles = StyleSheet.create({
   countButtonText: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
   playerCount: { minWidth: 26, color: '#FFFFFF', fontSize: 23, fontWeight: '900', textAlign: 'center' },
   selectionSummary: { flex: 1 },
-  summaryGame: { color: '#E9E7FF', fontSize: 13, fontWeight: '900' },
+  summaryGame: { color: '#F0F2F5', fontSize: 13, fontWeight: '900' },
   summaryDetails: { color: '#7E8494', fontSize: 10, marginTop: 3 },
-  startButton: { minWidth: 180, borderRadius: 15, backgroundColor: '#7560FF', paddingVertical: 15, paddingHorizontal: 22, alignItems: 'center' },
+  startButton: { minWidth: 180, borderRadius: 15, backgroundColor: '#4A5563', paddingVertical: 15, paddingHorizontal: 22, alignItems: 'center' },
   startButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
 });

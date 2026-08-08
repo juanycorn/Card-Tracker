@@ -47,13 +47,16 @@ export type PlayerTheme = {
 
 export type ThemePack = PlayerTheme;
 
+// Intentionally vivid. Multi-color identities keep separate gradient stops instead
+// of averaging colors together, so combinations like White/Black stay gold→black
+// instead of collapsing into muddy brown.
 export const MANA_THEME_COLORS: Record<ManaColor, string> = {
-  W: '#E8D9B5',
-  U: '#3B8EDB',
-  B: '#51405B',
-  R: '#D95345',
-  G: '#3E9B5F',
-  C: '#7B8492',
+  W: '#FFD54A',
+  U: '#087BFF',
+  B: '#15151B',
+  R: '#FF3B30',
+  G: '#00C853',
+  C: '#8A98A8',
 };
 
 export const MANA_COLOR_NAMES: Record<ManaColor, string> = {
@@ -67,15 +70,15 @@ export const MANA_COLOR_NAMES: Record<ManaColor, string> = {
 
 const DEFAULT_THEME_VALUES = {
   colors: {
-    primary: '#7B8492',
-    accent: '#AAB1BC',
-    background: '#080A0F',
+    primary: '#8A98A8',
+    accent: '#C7D0DB',
+    background: '#07090D',
     surface: '#11141B',
     border: '#303642',
     text: '#FFFFFF',
-    mutedText: '#A0A6B3',
-    lifeGain: '#4ADE80',
-    lifeLoss: '#FF5F6D',
+    mutedText: '#B4BAC5',
+    lifeGain: '#28E66F',
+    lifeLoss: '#FF3B4F',
   },
   icons: {
     life: 'heart',
@@ -113,7 +116,9 @@ export function getManaThemeId(colors?: readonly ManaColor[]): string {
 export function getManaTheme(colors?: readonly ManaColor[]): PlayerTheme {
   const manaColors = normalizeManaColors(colors);
   const swatches = manaColors.map((color) => MANA_THEME_COLORS[color]);
-  const gradientColors = (swatches.length === 1 ? [shade(swatches[0], 0.62), swatches[0]] : swatches) as [string, string, ...string[]];
+  const gradientColors = (swatches.length === 1
+    ? [shade(swatches[0], manaColors[0] === 'B' ? 0.45 : 0.58), swatches[0]]
+    : swatches) as [string, string, ...string[]];
   const primary = swatches[0];
   const accent = swatches[swatches.length - 1];
   const names = manaColors.map((color) => MANA_COLOR_NAMES[color]);
@@ -128,11 +133,13 @@ export function getManaTheme(colors?: readonly ManaColor[]): PlayerTheme {
       ...DEFAULT_THEME_VALUES.colors,
       primary,
       accent,
-      background: shade(primary, 0.2),
-      surface: shade(primary, 0.3),
-      border: shade(accent, 0.72),
+      // Keep readable dark surfaces while the actual mana colors stay saturated
+      // in gradients, borders, active controls, and highlights.
+      background: manaColors[0] === 'B' ? '#07070A' : shade(primary, 0.16),
+      surface: manaColors[0] === 'B' ? '#111116' : shade(primary, 0.24),
+      border: manaColors[0] === 'B' ? '#4A4A52' : shade(accent, 0.78),
       text: '#FFFFFF',
-      mutedText: '#B7BBC5',
+      mutedText: '#C0C5CE',
     },
     icons: DEFAULT_THEME_VALUES.icons,
     sounds: DEFAULT_THEME_VALUES.sounds,
@@ -143,7 +150,6 @@ export function getManaTheme(colors?: readonly ManaColor[]): PlayerTheme {
 
 export const DEFAULT_PLAYER_THEME_ID = getManaThemeId(['C']);
 
-// Keep this export for older screens while custom/community themes are not yet enabled.
 export const THEME_PACKS: PlayerTheme[] = [getManaTheme(['C'])];
 export const THEMES_BY_ID: Record<string, PlayerTheme> = { [DEFAULT_PLAYER_THEME_ID]: THEME_PACKS[0] };
 

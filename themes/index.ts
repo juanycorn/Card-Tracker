@@ -9,6 +9,7 @@ export type PlayerTheme = {
   example: string;
   labels: Record<CounterRole, string>;
   gradientColors: readonly [string, string, ...string[]];
+  backgroundImageUri?: string;
   colors: {
     primary: string;
     accent: string;
@@ -47,8 +48,23 @@ export type PlayerTheme = {
 
 export type ThemePack = PlayerTheme;
 
-// Mana colors are kept visually distinct and saturated. White is a cool ivory
-// rather than yellow so White/Black reads as marble -> obsidian instead of brown.
+export type EncodedCustomTheme = {
+  id: string;
+  name: string;
+  description?: string;
+  colors: PlayerTheme['colors'];
+  animations: PlayerTheme['animations'];
+  assets?: {
+    backgroundImage?: { uri?: string };
+    previewImage?: { uri?: string };
+    damageSound?: { uri?: string };
+    healSound?: { uri?: string };
+    counterSound?: { uri?: string };
+    turnSound?: { uri?: string };
+    music?: { uri?: string };
+  };
+};
+
 export const MANA_THEME_COLORS: Record<ManaColor, string> = {
   W: '#F4F4F2',
   U: '#0078FF',
@@ -148,12 +164,48 @@ export function getManaTheme(colors?: readonly ManaColor[]): PlayerTheme {
   };
 }
 
+export function getCustomThemeId(theme: EncodedCustomTheme): string {
+  return `custom:${encodeURIComponent(JSON.stringify(theme))}`;
+}
+
+function decodeCustomTheme(id: string): PlayerTheme | null {
+  try {
+    const raw = decodeURIComponent(id.slice('custom:'.length));
+    const theme = JSON.parse(raw) as EncodedCustomTheme;
+    if (!theme?.id || !theme?.colors?.primary || !theme?.colors?.accent) return null;
+    return {
+      id,
+      name: theme.name || 'Custom Theme',
+      example: theme.description || 'Custom player theme',
+      labels: BASE_COUNTER_LABELS,
+      gradientColors: [theme.colors.background || '#080A0F', theme.colors.primary, theme.colors.accent],
+      backgroundImageUri: theme.assets?.backgroundImage?.uri,
+      colors: {
+        ...DEFAULT_THEME_VALUES.colors,
+        ...theme.colors,
+        border: theme.colors.accent,
+      },
+      icons: DEFAULT_THEME_VALUES.icons,
+      sounds: {
+        damage: theme.assets?.damageSound?.uri,
+        heal: theme.assets?.healSound?.uri,
+        turnStart: theme.assets?.turnSound?.uri,
+      },
+      animations: { ...DEFAULT_THEME_VALUES.animations, ...theme.animations },
+      typography: DEFAULT_THEME_VALUES.typography,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export const DEFAULT_PLAYER_THEME_ID = getManaThemeId(['C']);
 
 export const THEME_PACKS: PlayerTheme[] = [getManaTheme(['C'])];
 export const THEMES_BY_ID: Record<string, PlayerTheme> = { [DEFAULT_PLAYER_THEME_ID]: THEME_PACKS[0] };
 
 export function getThemePack(id?: string): PlayerTheme {
+  if (id?.startsWith('custom:')) return decodeCustomTheme(id) ?? getManaTheme(['C']);
   if (id?.startsWith('mana:')) {
     const colors = id.slice(5).split('-').filter((color): color is ManaColor => MANA_ORDER.includes(color as ManaColor));
     return getManaTheme(colors);

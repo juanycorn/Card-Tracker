@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { getRulesPack, RULES_PRESETS, type ManaColor } from '../games';
 import { DEFAULT_PLAYER_THEME_ID, MANA_COLOR_NAMES, MANA_THEME_COLORS, getManaTheme, getManaThemeId, getPlayerTheme } from '../themes';
-import { loadDeckProfiles, type DeckProfile } from '../storage/deckProfiles';
+import { loadBattleProfiles, type BattleProfile } from '../storage/deckProfiles';
 import { saveGame, type SavedPlayer } from '../storage/gameSave';
 
 const EMPTY_MANA: Record<ManaColor, number> = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
@@ -33,17 +33,17 @@ export default function PlayerSetupScreen() {
   const playerCount = Math.min(6, Math.max(1, Number(params.players) || preset.players));
   const rules = getRulesPack(preset.game);
 
-  const [profiles, setProfiles] = useState<DeckProfile[]>([]);
+  const [profiles, setProfiles] = useState<BattleProfile[]>([]);
   const [choices, setChoices] = useState<PlayerChoice[]>(() => Array.from({ length: playerCount }, makeChoice));
   const [playerIndex, setPlayerIndex] = useState(0);
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    loadDeckProfiles().then((items) => { if (active) setProfiles(items); });
+    loadBattleProfiles().then((items) => { if (active) setProfiles(items); });
     return () => { active = false; };
   }, []));
 
-  const compatibleProfiles = useMemo(() => profiles.filter((profile) => profile.presetId === preset.id), [profiles, preset.id]);
+  const compatibleProfiles = useMemo(() => profiles.filter((profile) => profile.gameKey === preset.gameKey), [profiles, preset.gameKey]);
   const current = choices[playerIndex] ?? makeChoice();
   const selectedProfile = profiles.find((profile) => profile.id === current.profileId);
   const selectedManaColors = selectedProfile?.manaColors.length ? selectedProfile.manaColors : current.manaColors;
@@ -51,7 +51,7 @@ export default function PlayerSetupScreen() {
   const selectedTheme = selectedProfile ? getPlayerTheme(selectedProfile.themeId) : fallbackTheme;
   const confirmTextColor = contrastTextColor(selectedTheme.colors.primary);
 
-  const selectProfile = (profile?: DeckProfile) => {
+  const selectProfile = (profile?: BattleProfile) => {
     setChoices((items) => items.map((choice, index) => index === playerIndex
       ? {
           ...choice,
@@ -140,34 +140,34 @@ export default function PlayerSetupScreen() {
           <View style={styles.headerCenter}>
             <Text style={styles.eyebrow}>{preset.game} · {preset.mode}</Text>
             <Text style={styles.title}>PLAYER {playerIndex + 1}</Text>
-            <Text style={styles.subtitle}>Choose a deck profile. Its saved theme comes with it automatically.</Text>
+            <Text style={styles.subtitle}>Choose a Battle Profile. Any {preset.game} build works in this mode.</Text>
           </View>
           <Text style={styles.progress}>{playerIndex + 1}/{playerCount}</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.sectionLabel}>DECK PROFILE</Text>
-          <Text style={styles.helpText}>Profiles load the player name, mana colors, counter suggestions, and attached theme.</Text>
+          <Text style={styles.sectionLabel}>BATTLE PROFILE</Text>
+          <Text style={styles.helpText}>Profiles bring the build name, colors, counter suggestions, and attached theme.</Text>
           <View style={styles.grid}>
             <Pressable onPress={() => selectProfile()} style={[styles.optionCard, !current.profileId && styles.selectedCard]}>
               <Text style={styles.optionTitle}>No Profile</Text>
-              <Text style={styles.optionMeta}>Choose mana colors manually</Text>
+              <Text style={styles.optionMeta}>{rules.supportsMana ? 'Choose mana colors manually' : 'Use the default game setup'}</Text>
             </Pressable>
             {compatibleProfiles.map((profile) => {
               const profileTheme = getPlayerTheme(profile.themeId);
               return <Pressable key={profile.id} onPress={() => selectProfile(profile)} style={[styles.optionCard, current.profileId === profile.id && [styles.selectedCard, { borderColor: profileTheme.colors.accent }]]}>
                 <Text style={styles.optionTitle}>{profile.name}</Text>
-                <Text style={styles.optionMeta}>{profile.playerName || 'Saved deck profile'}</Text>
+                <Text style={styles.optionMeta}>{profile.playerName || 'Saved Battle Profile'}</Text>
                 {!!profile.manaColors.length && <Text style={styles.optionHint}>{profile.manaColors.join(' / ')} mana</Text>}
                 <Text style={[styles.themeHint, { color: profileTheme.colors.accent }]}>{profileTheme.name}</Text>
               </Pressable>;
             })}
           </View>
-          {compatibleProfiles.length === 0 && <Text style={styles.emptyHint}>No saved profiles for this game mode yet.</Text>}
+          {compatibleProfiles.length === 0 && <Text style={styles.emptyHint}>No saved Battle Profiles for {preset.game} yet.</Text>}
 
-          {!selectedProfile && <>
+          {!selectedProfile && rules.supportsMana && <>
             <Text style={styles.sectionLabel}>MANA COLORS</Text>
-            <Text style={styles.helpText}>No deck profile selected, so pick this player's mana colors for the default theme.</Text>
+            <Text style={styles.helpText}>No Battle Profile selected, so pick this player's mana colors for the default theme.</Text>
             <View style={styles.manaRow}>
               {MANA_COLORS.map((color) => {
                 const selected = selectedManaColors.includes(color);

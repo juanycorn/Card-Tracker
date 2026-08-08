@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RULES_PRESETS, type CounterRole, type GameKey, type ManaColor } from '../games';
+import type { PokemonEnergyType } from '../games/pokemonEnergy';
 
 const BATTLE_PROFILES_KEY = '@cardsync/deck-profiles-v1';
 
@@ -12,6 +13,7 @@ export type BattleProfile = {
   presetId?: string;
   themeId: string;
   manaColors: ManaColor[];
+  pokemonEnergyTypes?: PokemonEnergyType[];
   preferredCounters: CounterRole[];
   createdAt: number;
   updatedAt: number;
@@ -32,8 +34,12 @@ export async function loadBattleProfiles(): Promise<BattleProfile[]> {
   try {
     const parsed = JSON.parse(raw) as BattleProfile[];
     if (!Array.isArray(parsed)) return [];
-    const migrated = parsed.map((profile) => ({ ...profile, gameKey: inferGameKey(profile) }));
-    if (migrated.some((profile, index) => profile.gameKey !== parsed[index]?.gameKey)) {
+    const migrated = parsed.map((profile) => ({
+      ...profile,
+      gameKey: inferGameKey(profile),
+      pokemonEnergyTypes: profile.pokemonEnergyTypes ?? [],
+    }));
+    if (migrated.some((profile, index) => profile.gameKey !== parsed[index]?.gameKey || !Array.isArray(parsed[index]?.pokemonEnergyTypes))) {
       await saveBattleProfiles(migrated);
     }
     return migrated;
@@ -62,7 +68,6 @@ export async function deleteBattleProfile(id: string): Promise<BattleProfile[]> 
   return profiles;
 }
 
-// Backward-compatible exports while the rest of the app finishes the terminology migration.
 export const loadDeckProfiles = loadBattleProfiles;
 export const saveDeckProfiles = saveBattleProfiles;
 export const upsertDeckProfile = upsertBattleProfile;

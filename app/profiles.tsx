@@ -5,9 +5,7 @@ import { COUNTER_KIND } from '../games/counters';
 import { getRulesPack, RULES_PRESETS, type CounterRole, type ManaColor, type RulesPreset } from '../games';
 import { THEME_PACKS } from '../themes';
 import { deleteDeckProfile, loadDeckProfiles, upsertDeckProfile, type DeckProfile } from '../storage/deckProfiles';
-import { saveGame, type SavedCounter, type SavedPlayer } from '../storage/gameSave';
 
-const EMPTY_MANA: Record<ManaColor, number> = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 const MANA_COLORS: ManaColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
 const makeDraft = (): DeckProfile => ({
@@ -67,170 +65,73 @@ export default function ProfilesScreen() {
       Alert.alert('Deck name required', 'Give this deck profile a name first.');
       return;
     }
-
-    const now = Date.now();
-    const saved = { ...draft, name, playerName: draft.playerName.trim(), updatedAt: now };
-    const next = await upsertDeckProfile(saved);
-    setProfiles(next);
+    const saved = { ...draft, name, playerName: draft.playerName.trim(), updatedAt: Date.now() };
+    setProfiles(await upsertDeckProfile(saved));
     setDraft(makeDraft());
     setEditing(false);
   };
 
-  const editProfile = (profile: DeckProfile) => {
-    setDraft(profile);
-    setEditing(true);
-  };
-
-  const removeProfile = (profile: DeckProfile) => Alert.alert(
-    'Delete deck profile?',
-    profile.name,
-    [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => setProfiles(await deleteDeckProfile(profile.id)) },
-    ],
-  );
-
-  const startProfile = async (profile: DeckProfile) => {
-    const selectedPreset = RULES_PRESETS.find((item) => item.id === profile.presetId) ?? RULES_PRESETS[0];
-    const selectedRules = getRulesPack(selectedPreset.game);
-    const counters: SavedCounter[] = profile.preferredCounters.map((role, index) => {
-      const kind = COUNTER_KIND[role];
-      return {
-        id: `profile-${profile.id}-${role}-${index}`,
-        role,
-        value: kind === 'stats' ? 1 : kind === 'toggle' ? 0 : 1,
-        secondaryValue: kind === 'stats' ? 1 : undefined,
-        active: kind === 'toggle' ? false : undefined,
-        temporary: false,
-      };
-    });
-
-    const players: SavedPlayer[] = Array.from({ length: selectedPreset.players }, (_, index) => ({
-      id: index + 1,
-      name: index === 0 ? (profile.playerName || profile.name) : `PLAYER ${index + 1}`,
-      value: selectedPreset.startingValue,
-      counters: index === 0 ? counters : [],
-      mana: { ...EMPTY_MANA },
-      manaColors: index === 0 && selectedRules.supportsMana ? profile.manaColors : [],
-    }));
-
-    await saveGame({
-      version: 1,
-      updatedAt: Date.now(),
-      config: {
-        game: selectedPreset.game,
-        mode: selectedPreset.mode,
-        players: selectedPreset.players,
-        start: selectedPreset.startingValue,
-        metric: selectedPreset.metric,
-        step: selectedPreset.step,
-        theme: profile.themeId,
-      },
-      state: { players, activePlayer: 0, activePhase: 0 },
-    });
-
-    router.push({
-      pathname: '/game',
-      params: {
-        game: selectedPreset.game,
-        mode: selectedPreset.mode,
-        players: String(selectedPreset.players),
-        start: String(selectedPreset.startingValue),
-        metric: selectedPreset.metric,
-        step: String(selectedPreset.step),
-        theme: profile.themeId,
-        resume: '1',
-      },
-    });
-  };
-
-  const newProfile = () => {
-    setDraft(makeDraft());
-    setEditing(true);
-  };
+  const editProfile = (profile: DeckProfile) => { setDraft(profile); setEditing(true); };
+  const removeProfile = (profile: DeckProfile) => Alert.alert('Delete deck profile?', profile.name, [
+    { text: 'Cancel', style: 'cancel' },
+    { text: 'Delete', style: 'destructive', onPress: async () => setProfiles(await deleteDeckProfile(profile.id)) },
+  ]);
+  const newProfile = () => { setDraft(makeDraft()); setEditing(true); };
 
   if (!editing) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}><Text style={styles.backText}>‹ HOME</Text></Pressable>
-          <View><Text style={styles.title}>Deck Profiles</Text><Text style={styles.subtitle}>Save a deck's rules, theme, counters, and mana colors.</Text></View>
-          <Pressable onPress={newProfile} style={styles.newButton}><Text style={styles.newButtonText}>＋ NEW</Text></Pressable>
-        </View>
-        <ScrollView contentContainerStyle={styles.profileList}>
-          {profiles.length === 0 ? (
-            <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No deck profiles yet</Text><Text style={styles.emptyBody}>Create one to launch a preconfigured game in a single tap.</Text><Pressable onPress={newProfile} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE PROFILE</Text></Pressable></View>
-          ) : profiles.map((profile) => {
-            const itemPreset = RULES_PRESETS.find((item) => item.id === profile.presetId) ?? RULES_PRESETS[0];
-            const theme = THEME_PACKS.find((item) => item.id === profile.themeId) ?? THEME_PACKS[0];
-            return <View key={profile.id} style={styles.profileCard}>
-              <View style={styles.profileInfo}><Text style={styles.profileName}>{profile.name}</Text><Text style={styles.profileMeta}>{itemPreset.game} · {itemPreset.mode} · {theme.name}</Text><Text style={styles.profileDetails}>{profile.preferredCounters.length} preferred counters{profile.manaColors.length ? ` · ${profile.manaColors.join('/')} mana` : ''}</Text></View>
-              <Pressable onPress={() => startProfile(profile)} style={styles.playButton}><Text style={styles.playText}>PLAY</Text></Pressable>
-              <Pressable onPress={() => editProfile(profile)} style={styles.smallButton}><Text style={styles.smallButtonText}>EDIT</Text></Pressable>
-              <Pressable onPress={() => removeProfile(profile)} style={styles.deleteButton}><Text style={styles.deleteText}>×</Text></Pressable>
-            </View>;
-          })}
-        </ScrollView>
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}><Text style={styles.backText}>‹ HOME</Text></Pressable>
+        <View><Text style={styles.title}>Deck Profiles</Text><Text style={styles.subtitle}>Save deck defaults here. Choose profiles when starting a game.</Text></View>
+        <Pressable onPress={newProfile} style={styles.newButton}><Text style={styles.newButtonText}>＋ NEW</Text></Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.profileList}>
+        {profiles.length === 0 ? <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No deck profiles yet</Text><Text style={styles.emptyBody}>Profiles remember a deck's rules, theme suggestion, mana colors, and useful counter shortcuts.</Text><Pressable onPress={newProfile} style={styles.primaryButton}><Text style={styles.primaryText}>CREATE PROFILE</Text></Pressable></View>
+        : profiles.map((profile) => {
+          const itemPreset = RULES_PRESETS.find((item) => item.id === profile.presetId) ?? RULES_PRESETS[0];
+          const theme = THEME_PACKS.find((item) => item.id === profile.themeId) ?? THEME_PACKS[0];
+          return <View key={profile.id} style={styles.profileCard}>
+            <View style={styles.profileInfo}><Text style={styles.profileName}>{profile.name}</Text><Text style={styles.profileMeta}>{itemPreset.game} · {itemPreset.mode} · {theme.name}</Text><Text style={styles.profileDetails}>{profile.preferredCounters.length} counter suggestions{profile.manaColors.length ? ` · ${profile.manaColors.join('/')} mana` : ''}</Text></View>
+            <Pressable onPress={() => editProfile(profile)} style={styles.smallButton}><Text style={styles.smallButtonText}>EDIT</Text></Pressable>
+            <Pressable onPress={() => removeProfile(profile)} style={styles.deleteButton}><Text style={styles.deleteText}>×</Text></Pressable>
+          </View>;
+        })}
+      </ScrollView>
+    </SafeAreaView>;
   }
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Pressable onPress={() => setEditing(false)} style={styles.backButton}><Text style={styles.backText}>‹ PROFILES</Text></Pressable>
-        <View><Text style={styles.title}>{profiles.some((item) => item.id === draft.id) ? 'Edit Profile' : 'New Deck Profile'}</Text><Text style={styles.subtitle}>Choose what CardSync should prepare for this deck.</Text></View>
-        <View style={{ width: 92 }} />
+  return <SafeAreaView style={styles.safeArea}>
+    <View style={styles.header}>
+      <Pressable onPress={() => setEditing(false)} style={styles.backButton}><Text style={styles.backText}>‹ PROFILES</Text></Pressable>
+      <View><Text style={styles.title}>{profiles.some((item) => item.id === draft.id) ? 'Edit Profile' : 'New Deck Profile'}</Text><Text style={styles.subtitle}>Save defaults that can be assigned to a player during New Game.</Text></View>
+      <View style={{ width: 92 }} />
+    </View>
+
+    <ScrollView contentContainerStyle={styles.editor}>
+      <Text style={styles.sectionLabel}>PROFILE</Text>
+      <View style={styles.inputRow}>
+        <TextInput value={draft.name} onChangeText={(name) => setDraft((current) => ({ ...current, name }))} placeholder="Deck name" placeholderTextColor="#676D7D" style={styles.input} />
+        <TextInput value={draft.playerName} onChangeText={(playerName) => setDraft((current) => ({ ...current, playerName }))} placeholder="Player name (optional)" placeholderTextColor="#676D7D" style={styles.input} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.editor}>
-        <Text style={styles.sectionLabel}>PROFILE</Text>
-        <View style={styles.inputRow}>
-          <TextInput value={draft.name} onChangeText={(name) => setDraft((current) => ({ ...current, name }))} placeholder="Deck name" placeholderTextColor="#676D7D" style={styles.input} />
-          <TextInput value={draft.playerName} onChangeText={(playerName) => setDraft((current) => ({ ...current, playerName }))} placeholder="Player name (optional)" placeholderTextColor="#676D7D" style={styles.input} />
-        </View>
+      <Text style={styles.sectionLabel}>RULES PRESET</Text>
+      <View style={styles.grid}>{RULES_PRESETS.map((item) => <Pressable key={item.id} onPress={() => choosePreset(item)} style={[styles.optionCard, item.id === draft.presetId && styles.selected]}><Text style={styles.optionEyebrow}>{item.game}</Text><Text style={styles.optionTitle}>{item.mode}</Text><Text style={styles.optionMeta}>{item.players} players · {item.startingValue} {item.metric}</Text></Pressable>)}</View>
 
-        <Text style={styles.sectionLabel}>RULES PRESET</Text>
-        <View style={styles.grid}>{RULES_PRESETS.map((item) => <Pressable key={item.id} onPress={() => choosePreset(item)} style={[styles.optionCard, item.id === draft.presetId && styles.selected]}><Text style={styles.optionEyebrow}>{item.game}</Text><Text style={styles.optionTitle}>{item.mode}</Text><Text style={styles.optionMeta}>{item.players} players · {item.startingValue} {item.metric}</Text></Pressable>)}</View>
+      <Text style={styles.sectionLabel}>DEFAULT PLAYER THEME</Text>
+      <Text style={styles.helpText}>This becomes the suggested theme when the deck is assigned. You can override it per player in New Game.</Text>
+      <View style={styles.grid}>{THEME_PACKS.map((item) => <Pressable key={item.id} onPress={() => setDraft((current) => ({ ...current, themeId: item.id }))} style={[styles.optionCard, item.id === draft.themeId && styles.selectedTheme]}><Text style={styles.optionTitle}>{item.name}</Text><Text style={styles.optionMeta}>{item.example}</Text></Pressable>)}</View>
 
-        <Text style={styles.sectionLabel}>THEME</Text>
-        <View style={styles.grid}>{THEME_PACKS.map((item) => <Pressable key={item.id} onPress={() => setDraft((current) => ({ ...current, themeId: item.id }))} style={[styles.optionCard, item.id === draft.themeId && styles.selectedTheme]}><Text style={styles.optionTitle}>{item.name}</Text><Text style={styles.optionMeta}>{item.example}</Text></Pressable>)}</View>
+      {rules.supportsMana && <><Text style={styles.sectionLabel}>MANA COLORS</Text><View style={styles.chipRow}>{MANA_COLORS.map((color) => <Pressable key={color} onPress={() => toggleMana(color)} style={[styles.chip, draft.manaColors.includes(color) && styles.selected]}><Text style={styles.chipText}>{color}</Text></Pressable>)}</View></>}
 
-        {rules.supportsMana && <><Text style={styles.sectionLabel}>MANA COLORS</Text><View style={styles.chipRow}>{MANA_COLORS.map((color) => <Pressable key={color} onPress={() => toggleMana(color)} style={[styles.chip, draft.manaColors.includes(color) && styles.selected]}><Text style={styles.chipText}>{color}</Text></Pressable>)}</View></>}
+      <Text style={styles.sectionLabel}>COUNTER SUGGESTIONS</Text>
+      <Text style={styles.helpText}>These do not get added automatically. They will be prioritized in this player's + Counter menu when the deck is assigned.</Text>
+      <View style={styles.grid}>{availableCounters.map((role) => <Pressable key={role} onPress={() => toggleCounter(role)} style={[styles.counterOption, draft.preferredCounters.includes(role) && styles.selected]}><Text style={styles.counterName}>{role.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</Text><Text style={styles.optionMeta}>{COUNTER_KIND[role] === 'stats' ? 'Two values' : COUNTER_KIND[role] === 'toggle' ? 'On / off' : 'Number'}</Text></Pressable>)}</View>
+    </ScrollView>
 
-        <Text style={styles.sectionLabel}>PREFERRED COUNTERS</Text>
-        <Text style={styles.helpText}>These appear automatically on Player 1 when the profile starts.</Text>
-        <View style={styles.grid}>{availableCounters.map((role) => <Pressable key={role} onPress={() => toggleCounter(role)} style={[styles.counterOption, draft.preferredCounters.includes(role) && styles.selected]}><Text style={styles.counterName}>{role.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase())}</Text><Text style={styles.optionMeta}>{COUNTER_KIND[role] === 'stats' ? 'Two values' : COUNTER_KIND[role] === 'toggle' ? 'On / off' : 'Number'}</Text></Pressable>)}</View>
-      </ScrollView>
-
-      <View style={styles.footer}><Pressable onPress={() => setEditing(false)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={saveProfile} style={styles.saveButton}><Text style={styles.saveText}>SAVE PROFILE</Text></Pressable></View>
-    </SafeAreaView>
-  );
+    <View style={styles.footer}><Pressable onPress={() => setEditing(false)} style={styles.cancelButton}><Text style={styles.cancelText}>CANCEL</Text></Pressable><Pressable onPress={saveProfile} style={styles.saveButton}><Text style={styles.saveText}>SAVE PROFILE</Text></Pressable></View>
+  </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#080A0F' },
-  header: { minHeight: 82, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
-  backButton: { minWidth: 92, paddingVertical: 10, borderRadius: 12, backgroundColor: '#151820', alignItems: 'center' },
-  backText: { color: '#AEB3C1', fontSize: 11, fontWeight: '900' },
-  title: { color: '#F7F8FC', fontSize: 25, fontWeight: '900', textAlign: 'center' },
-  subtitle: { color: '#7E8494', fontSize: 11, marginTop: 3, textAlign: 'center' },
-  newButton: { minWidth: 92, paddingVertical: 11, borderRadius: 12, backgroundColor: '#7560FF', alignItems: 'center' },
-  newButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
-  profileList: { padding: 24, gap: 12 },
-  emptyCard: { maxWidth: 620, width: '100%', alignSelf: 'center', borderRadius: 20, borderWidth: 1, borderColor: '#2A2F3C', backgroundColor: '#11141B', padding: 28, alignItems: 'center' },
-  emptyTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' },
-  emptyBody: { color: '#8E94A6', fontSize: 12, textAlign: 'center', marginTop: 7, marginBottom: 18 },
-  primaryButton: { backgroundColor: '#7560FF', borderRadius: 14, paddingVertical: 13, paddingHorizontal: 22 }, primaryText: { color: '#FFFFFF', fontWeight: '900' },
-  profileCard: { width: '100%', maxWidth: 720, alignSelf: 'center', minHeight: 94, borderRadius: 18, borderWidth: 1, borderColor: '#292E3A', backgroundColor: '#11141B', padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  profileInfo: { flex: 1 }, profileName: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' }, profileMeta: { color: '#9C8DFF', fontSize: 11, fontWeight: '800', marginTop: 3 }, profileDetails: { color: '#7E8494', fontSize: 10, marginTop: 5 },
-  playButton: { borderRadius: 12, backgroundColor: '#43B79C', paddingVertical: 12, paddingHorizontal: 18 }, playText: { color: '#07120F', fontWeight: '900' },
-  smallButton: { borderRadius: 12, backgroundColor: '#252A35', paddingVertical: 12, paddingHorizontal: 14 }, smallButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 10 },
-  deleteButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A1B22', alignItems: 'center', justifyContent: 'center' }, deleteText: { color: '#FF7A86', fontSize: 20, fontWeight: '900' },
-  editor: { paddingHorizontal: 24, paddingBottom: 110 }, sectionLabel: { color: '#717787', fontSize: 9, fontWeight: '900', letterSpacing: 1.7, marginTop: 16, marginBottom: 8 },
-  inputRow: { flexDirection: 'row', gap: 10 }, input: { flex: 1, borderRadius: 13, borderWidth: 1, borderColor: '#303544', backgroundColor: '#141820', color: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontWeight: '700' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 }, optionCard: { width: '31.8%', minHeight: 78, flexGrow: 1, borderRadius: 14, borderWidth: 1, borderColor: '#292E3A', backgroundColor: '#11141B', padding: 12, justifyContent: 'center' }, selected: { borderColor: '#8F7CFF', borderWidth: 2, backgroundColor: '#211B39' }, selectedTheme: { borderColor: '#43B79C', borderWidth: 2, backgroundColor: '#142923' }, optionEyebrow: { color: '#8F7CFF', fontSize: 8, fontWeight: '900' }, optionTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '900', marginTop: 2 }, optionMeta: { color: '#7E8494', fontSize: 9, marginTop: 4 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 }, chip: { width: 54, height: 46, borderRadius: 13, borderWidth: 1, borderColor: '#303544', backgroundColor: '#151820', alignItems: 'center', justifyContent: 'center' }, chipText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
-  helpText: { color: '#7E8494', fontSize: 10, marginTop: -4, marginBottom: 9 }, counterOption: { width: '23.8%', minHeight: 62, flexGrow: 1, borderRadius: 13, borderWidth: 1, borderColor: '#292E3A', backgroundColor: '#11141B', padding: 10, justifyContent: 'center' }, counterName: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, minHeight: 78, borderTopWidth: 1, borderTopColor: '#222630', backgroundColor: '#0D1016', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingHorizontal: 24, gap: 12 }, cancelButton: { paddingVertical: 13, paddingHorizontal: 20 }, cancelText: { color: '#8E94A6', fontWeight: '900' }, saveButton: { borderRadius: 14, backgroundColor: '#7560FF', paddingVertical: 14, paddingHorizontal: 24 }, saveText: { color: '#FFFFFF', fontWeight: '900' },
+  safeArea: { flex: 1, backgroundColor: '#080A0F' }, header: { minHeight: 82, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 }, backButton: { minWidth: 92, paddingVertical: 10, borderRadius: 12, backgroundColor: '#151820', alignItems: 'center' }, backText: { color: '#AEB3C1', fontSize: 11, fontWeight: '900' }, title: { color: '#F7F8FC', fontSize: 23, fontWeight: '900', textAlign: 'center' }, subtitle: { color: '#7E8494', fontSize: 10, marginTop: 3, textAlign: 'center' }, newButton: { minWidth: 92, paddingVertical: 11, borderRadius: 12, backgroundColor: '#7560FF', alignItems: 'center' }, newButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' }, profileList: { padding: 24, gap: 12 }, emptyCard: { maxWidth: 620, width: '100%', alignSelf: 'center', borderRadius: 20, borderWidth: 1, borderColor: '#2A2F3C', backgroundColor: '#11141B', padding: 28, alignItems: 'center' }, emptyTitle: { color: '#FFFFFF', fontSize: 22, fontWeight: '900' }, emptyBody: { color: '#8E94A6', fontSize: 12, textAlign: 'center', marginTop: 7, marginBottom: 18 }, primaryButton: { backgroundColor: '#7560FF', borderRadius: 14, paddingVertical: 13, paddingHorizontal: 22 }, primaryText: { color: '#FFFFFF', fontWeight: '900' }, profileCard: { width: '100%', maxWidth: 720, alignSelf: 'center', minHeight: 94, borderRadius: 18, borderWidth: 1, borderColor: '#292E3A', backgroundColor: '#11141B', padding: 16, flexDirection: 'row', alignItems: 'center', gap: 10 }, profileInfo: { flex: 1 }, profileName: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' }, profileMeta: { color: '#9C8DFF', fontSize: 11, fontWeight: '800', marginTop: 3 }, profileDetails: { color: '#7E8494', fontSize: 10, marginTop: 5 }, smallButton: { borderRadius: 12, backgroundColor: '#252A35', paddingVertical: 12, paddingHorizontal: 14 }, smallButtonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 10 }, deleteButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3A1B22', alignItems: 'center', justifyContent: 'center' }, deleteText: { color: '#FF7A86', fontSize: 20, fontWeight: '900' }, editor: { paddingHorizontal: 24, paddingBottom: 110 }, sectionLabel: { color: '#717787', fontSize: 9, fontWeight: '900', letterSpacing: 1.7, marginTop: 16, marginBottom: 8 }, inputRow: { flexDirection: 'row', gap: 10 }, input: { flex: 1, borderRadius: 13, borderWidth: 1, borderColor: '#303544', backgroundColor: '#141820', color: '#FFFFFF', paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontWeight: '700' }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 }, optionCard: { width: '31.8%', minHeight: 78, flexGrow: 1, borderRadius: 14, borderWidth: 1, borderColor: '#292E3A', backgroundColor: '#11141B', padding: 12, justifyContent: 'center' }, selected: { borderColor: '#8F7CFF', borderWidth: 2, backgroundColor: '#201B3D' }, selectedTheme: { borderColor: '#57C7B6', borderWidth: 2, backgroundColor: '#13251F' }, optionEyebrow: { color: '#8F7CFF', fontSize: 8, fontWeight: '900' }, optionTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '900', marginTop: 2 }, optionMeta: { color: '#777D8D', fontSize: 8, marginTop: 3 }, chipRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' }, chip: { width: 54, height: 48, borderRadius: 13, borderWidth: 1, borderColor: '#303544', backgroundColor: '#151820', alignItems: 'center', justifyContent: 'center' }, chipText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' }, helpText: { color: '#7E8494', fontSize: 10, marginTop: -3, marginBottom: 8 }, counterOption: { width: '23%', minHeight: 62, flexGrow: 1, borderRadius: 12, borderWidth: 1, borderColor: '#292E3A', backgroundColor: '#11141B', padding: 10, justifyContent: 'center' }, counterName: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' }, footer: { height: 78, borderTopWidth: 1, borderTopColor: '#252A35', backgroundColor: '#0D1016', flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 10, paddingHorizontal: 24 }, cancelButton: { paddingVertical: 12, paddingHorizontal: 18 }, cancelText: { color: '#8E94A6', fontWeight: '900' }, saveButton: { borderRadius: 14, backgroundColor: '#7560FF', paddingVertical: 14, paddingHorizontal: 24 }, saveText: { color: '#FFFFFF', fontWeight: '900' },
 });

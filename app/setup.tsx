@@ -13,7 +13,7 @@ export default function SetupScreen() {
   };
 
   const continueSetup = () => router.push({
-    pathname: '/player-setup',
+    pathname: selected.gameKey === 'pokemon' ? '/pokemon-player-setup' : '/player-setup',
     params: {
       presetId: selected.id,
       players: String(players),

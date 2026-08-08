@@ -16,6 +16,7 @@ export type SavedPlayer = {
   id: number;
   name: string;
   value: number;
+  alive?: boolean;
   counters: SavedCounter[];
   mana: Record<ManaColor, number>;
   manaColors: ManaColor[];
@@ -46,10 +47,11 @@ export type SavedGame = {
 export async function loadSavedGame(): Promise<SavedGame | null> {
   const raw = await AsyncStorage.getItem(GAME_SAVE_KEY);
   if (!raw) return null;
-
   try {
     const parsed = JSON.parse(raw) as SavedGame;
-    return parsed.version === 1 ? parsed : null;
+    if (parsed.version !== 1) return null;
+    parsed.state.players = parsed.state.players.map((player) => ({ ...player, alive: player.alive ?? true }));
+    return parsed;
   } catch {
     return null;
   }

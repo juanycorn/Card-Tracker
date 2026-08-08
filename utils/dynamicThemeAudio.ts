@@ -4,7 +4,6 @@ import type { SavedCounter } from '../storage/gameSave';
 import type { PlayerTheme } from '../themes';
 
 export type DynamicMusicState = 'turn' | 'combat' | 'winning' | 'desperation' | 'victory' | 'defeat' | 'silent';
-
 const POSITIVE_COUNTERS = new Set(['buff', 'treasure', 'food', 'resource', 'experience', 'energy', 'attachedEnergy', 'spellCounter']);
 
 export function isDesperation(value: number, startingValue: number): boolean {
@@ -34,25 +33,23 @@ function uriFor(theme: PlayerTheme, state: DynamicMusicState): string | undefine
 
 export function useDynamicThemeAudio(theme: PlayerTheme, state: DynamicMusicState) {
   const player = useAudioPlayer(null);
-  const currentUri = useRef<string | undefined>(undefined);
+  const currentUri = useRef<string | undefined>();
+  const uri = uriFor(theme, state);
 
   useEffect(() => {
-    const uri = uriFor(theme, state);
     if (!uri) {
       player.pause();
       currentUri.current = undefined;
       return;
     }
-    if (currentUri.current !== uri) {
-      player.pause();
-      player.replace(uri);
-      player.loop = state !== 'victory' && state !== 'defeat';
-      player.volume = 1;
-      currentUri.current = uri;
-    }
-    void player.seekTo(0);
-    player.play();
-  }, [player, state, theme]);
+    if (currentUri.current === uri) return;
+    player.pause();
+    player.replace(uri);
+    player.loop = state !== 'victory' && state !== 'defeat';
+    player.volume = 1;
+    currentUri.current = uri;
+    void player.seekTo(0).then(() => player.play());
+  }, [player, state, uri]);
 
   return player;
 }
@@ -64,7 +61,6 @@ export function useOneShotThemeAudio() {
     player.pause();
     player.replace(uri);
     player.loop = false;
-    void player.seekTo(0);
-    player.play();
+    void player.seekTo(0).then(() => player.play());
   };
 }

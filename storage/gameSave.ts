@@ -19,6 +19,9 @@ export type SavedPlayer = {
   counters: SavedCounter[];
   mana: Record<ManaColor, number>;
   manaColors: ManaColor[];
+  themeId?: string;
+  deckProfileId?: string;
+  preferredCounters?: CounterRole[];
 };
 
 export type SavedGame = {

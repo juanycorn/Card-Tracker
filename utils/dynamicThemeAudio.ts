@@ -28,7 +28,12 @@ export function resolveDynamicMusic({ value, startingValue, counters, phase, ali
 
 function uriFor(theme: PlayerTheme, state: DynamicMusicState): string | undefined {
   if (state === 'silent') return undefined;
-  return theme.music[state];
+  if (state === 'victory') return theme.music.victory;
+  if (state === 'defeat') return theme.music.defeat;
+  if (state === 'desperation') return theme.music.desperation || theme.music.turn;
+  if (state === 'winning') return theme.music.winning || theme.music.turn;
+  if (state === 'combat') return theme.music.combat || theme.music.turn;
+  return theme.music.turn;
 }
 
 export function useDynamicThemeAudio(theme: PlayerTheme, state: DynamicMusicState) {

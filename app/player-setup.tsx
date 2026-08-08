@@ -10,6 +10,16 @@ import { saveGame, type SavedPlayer } from '../storage/gameSave';
 const EMPTY_MANA: Record<ManaColor, number> = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 const MANA_COLORS: ManaColor[] = ['W', 'U', 'B', 'R', 'G', 'C'];
 
+function contrastTextColor(background: string): string {
+  const clean = background.replace('#', '');
+  if (clean.length !== 6) return '#FFFFFF';
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.62 ? '#111318' : '#FFFFFF';
+}
+
 type PlayerChoice = {
   profileId?: string;
   manaColors: ManaColor[];
@@ -38,6 +48,7 @@ export default function PlayerSetupScreen() {
   const selectedProfile = profiles.find((profile) => profile.id === current.profileId);
   const selectedManaColors = selectedProfile?.manaColors.length ? selectedProfile.manaColors : current.manaColors;
   const selectedTheme = getManaTheme(selectedManaColors);
+  const confirmTextColor = contrastTextColor(selectedTheme.colors.primary);
 
   const selectProfile = (profile?: DeckProfile) => {
     setChoices((items) => items.map((choice, index) => index === playerIndex
@@ -173,8 +184,8 @@ export default function PlayerSetupScreen() {
 
         <View style={styles.footer}>
           <Pressable onPress={confirmPlayer} style={[styles.confirmButton, { backgroundColor: selectedTheme.colors.primary }]}>
-            <Text style={styles.confirmButtonText}>{playerIndex === playerCount - 1 ? 'CONFIRM & START GAME' : `CONFIRM PLAYER ${playerIndex + 1}`}</Text>
-            <Text style={styles.confirmButtonHint}>{playerIndex === playerCount - 1 ? 'All players configured' : `Next: Player ${playerIndex + 2}`}</Text>
+            <Text style={[styles.confirmButtonText, { color: confirmTextColor }]}>{playerIndex === playerCount - 1 ? 'CONFIRM & START GAME' : `CONFIRM PLAYER ${playerIndex + 1}`}</Text>
+            <Text style={[styles.confirmButtonHint, { color: confirmTextColor }]}>{playerIndex === playerCount - 1 ? 'All players configured' : `Next: Player ${playerIndex + 2}`}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -218,6 +229,6 @@ const styles = StyleSheet.create({
   confirmMeta: { color: '#F0F1F4', fontSize: 10, marginTop: 3 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 14, backgroundColor: 'rgba(8,10,15,0.94)', borderTopWidth: 1, borderTopColor: '#2B303C' },
   confirmButton: { minHeight: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  confirmButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
-  confirmButtonHint: { color: '#F0F1F4', fontSize: 8, fontWeight: '800', marginTop: 2 },
+  confirmButtonText: { fontSize: 14, fontWeight: '900' },
+  confirmButtonHint: { fontSize: 8, fontWeight: '800', marginTop: 2 },
 });

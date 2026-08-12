@@ -1,0 +1,87 @@
+name: CardSync Android Alpha
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cardsync-alpha-release
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Validate Expo project
+        run: npx expo-doctor
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean --non-interactive
+
+      - name: Build installable APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Prepare APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk CardSync-alpha.apk
+          sha256sum CardSync-alpha.apk > CardSync-alpha.apk.sha256
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CardSync-alpha
+          path: |
+            CardSync-alpha.apk
+            CardSync-alpha.apk.sha256
+
+      - name: Point rolling alpha tag at this build
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f alpha-latest "$GITHUB_SHA"
+          git push origin refs/tags/alpha-latest --force
+
+      - name: Publish rolling GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view alpha-latest >/dev/null 2>&1; then
+            gh release edit alpha-latest \
+              --title "CardSync Alpha" \
+              --notes "Latest automatic Android alpha build from main. This is a development build and may contain bugs." \
+              --prerelease
+            gh release upload alpha-latest CardSync-alpha.apk CardSync-alpha.apk.sha256 --clobber
+          else
+            gh release create alpha-latest \
+              CardSync-alpha.apk CardSync-alpha.apk.sha256 \
+              --title "CardSync Alpha" \
+              --notes "Latest automatic Android alpha build from main. This is a development build and may contain bugs." \
+              --prerelease \
+              --target "$GITHUB_SHA"
+          fi

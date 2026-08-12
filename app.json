@@ -2,7 +2,7 @@
   "expo": {
     "name": "CardSync",
     "slug": "cardsync",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "landscape",
     "userInterfaceStyle": "dark",
     "scheme": "cardsync",
@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.juanycorn.cardsync",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#090B10"
       }

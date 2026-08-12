@@ -43,13 +43,13 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --clean --non-interactive
 
-      - name: Build installable APK
+      - name: Build standalone APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleRelease
 
       - name: Prepare APK
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk CardSync-alpha.apk
+          cp android/app/build/outputs/apk/release/app-release.apk CardSync-alpha.apk
           sha256sum CardSync-alpha.apk > CardSync-alpha.apk.sha256
 
       - name: Upload workflow artifact
@@ -74,14 +74,14 @@ jobs:
           if gh release view alpha-latest >/dev/null 2>&1; then
             gh release edit alpha-latest \
               --title "CardSync Alpha" \
-              --notes "Latest automatic Android alpha build from main. This is a development build and may contain bugs." \
+              --notes "Latest automatic standalone Android alpha build from main. This is a development build and may contain bugs." \
               --prerelease
             gh release upload alpha-latest CardSync-alpha.apk CardSync-alpha.apk.sha256 --clobber
           else
             gh release create alpha-latest \
               CardSync-alpha.apk CardSync-alpha.apk.sha256 \
               --title "CardSync Alpha" \
-              --notes "Latest automatic Android alpha build from main. This is a development build and may contain bugs." \
+              --notes "Latest automatic standalone Android alpha build from main. This is a development build and may contain bugs." \
               --prerelease \
               --target "$GITHUB_SHA"
           fi
